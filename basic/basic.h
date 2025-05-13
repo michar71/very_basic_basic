@@ -1,22 +1,28 @@
-//#include <setjmp.h>
+#ifndef basic_h
+#define basic_h
+
+
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 
+
+
 //Forward declarations
 void base();
+void registerhook();
 
 //Defines
 #define SYMSZ	16			/* SYMBOL SIZE */
-#define PRGSZ	65536			/* PROGRAM SIZE */
+#define PRGSZ	65536		/* PROGRAM SIZE */
 #define STKSZ	256			/* STACK SIZE */
-#define STRSZ	4096			/* STRING TABLE SIZE */
+#define STRSZ	4096		/* STRING TABLE SIZE */
 #define VARS	512			/* VARIABLE COUNT */
 #define LOCS	8			/* LOCAL COUNT */
 
-typedef ptrdiff_t	Val;		/* SIGNED INT/POINTER */
+typedef ptrdiff_t	Val;	/* SIGNED INT/POINTER */
 typedef int		(*Code)();	/* BYTE-CODE */
 
 enum {	NAME=1,NUMBER,STRING,LP,RP,COMMA,ADD,SUBS,MUL,DIV,MOD,
@@ -25,34 +31,31 @@ enum {	NAME=1,NUMBER,STRING,LP,RP,COMMA,ADD,SUBS,MUL,DIV,MOD,
 char	*kwd[]={ "AND","OR","FORMAT","SUB","END","RETURN","LOCAL","WHILE",
 	"FOR","TO","IF","ELSE","THEN","DIM","UBOUND","BYE","BREAK","RESUME",0 };
 
-char	lbuf[256],tokn[SYMSZ],*lp;	/* LEXER STATE */
-int	lnum,tok,tokv,ungot;		/* LEXER STATE */
-int	(*prg[PRGSZ])(),(**pc)(),cpc,lmap[PRGSZ]; /* COMPILED PROGRAM */
-Val	stk[STKSZ],*sp;			/* RUN-TIME STACK */
-Val	value[VARS];			/* VARIABLE VALUES */
-char	name[VARS][SYMSZ];		/* VARIABLE NAMES */
-int	sub[VARS][LOCS+2];		/* N,LOCAL VAR INDEXES */
-int	mode[VARS];			/* 0=NONE, 1=DIM, 2=SUB */
-Val	ret;				/* FUNCTION RETURN VALUE */
-int	cstk[STKSZ], *csp;		/* COMPILER STACK */
-int	nvar,cursub,temp,compile,ipc,(**opc)(); /* COMPILER STATE */
-int globalerror;			/* GLOBAL ERROR */
-char	stab[STRSZ], *stabp;		/* STRING TABLE */
-//jmp_buf	trap;				/* TRAP ERRORS */
+char	lbuf[256],tokn[SYMSZ],*lp;				/* LEXER STATE */
+int	lnum,tok,tokv,ungot;						/* LEXER STATE */
+int	(*prg[PRGSZ])(),(**pc)(),cpc,lmap[PRGSZ]; 	/* COMPILED PROGRAM */
+Val	stk[STKSZ],*sp;								/* RUN-TIME STACK */
+Val	value[VARS];								/* VARIABLE VALUES */
+char	name[VARS][SYMSZ];						/* VARIABLE NAMES */
+int	sub[VARS][LOCS+2];							/* N,LOCAL VAR INDEXES */
+int	mode[VARS];									/* 0=NONE, 1=DIM, 2=SUB */
+Val	ret;										/* FUNCTION RETURN VALUE */
+int	cstk[STKSZ], *csp;							/* COMPILER STACK */
+int	nvar,cursub,temp,compile,ipc,(**opc)(); 	/* COMPILER STATE */
+int globalerror;								/* GLOBAL ERROR */
+char	stab[STRSZ], *stabp;					/* STRING TABLE */
 
-#define A	sp[1]			/* LEFT OPERAND */
-#define B	sp[0]			/* RIGHT OPERAND */
-#define PCV	((Val)*pc++)		/* GET IMMEDIATE */
-#define STEP	return 1		/* CONTINUE RUNNING */
+#define A	sp[1]								/* LEFT OPERAND */
+#define B	sp[0]								/* RIGHT OPERAND */
+#define PCV	((Val)*pc++)						/* GET IMMEDIATE */
+#define STEP	return 1						/* CONTINUE RUNNING */
 #define DRIVER	while (((*pc++)()) && (globalerror == 0))	/* RUN PROGRAM */
-#define LOC(N) value[sub[v][N+2]]	/* SUBROUTINE LOCAL */
+#define LOC(N) value[sub[v][N+2]]				/* SUBROUTINE LOCAL */
 
 
-int	(*kwdhook)(char *kwd);		/* KEYWORD HOOK */
-int	(*funhook)(char *kwd, int n);	/* FUNCTION CALL HOOK */
-void initbasic(int comp) { pc=prg; sp=stk+STKSZ; csp=cstk+STKSZ; stabp=stab; compile=comp; }
-//void bad(char *msg) { printf("ERROR %d: %s\n", lnum, msg); longjmp(trap,1); }
-//void err(char *msg) { printf("ERROR %d: %s\n",lmap[pc-prg-1],msg); longjmp(trap,2); }
+int	(*kwdhook)(char *kwd);						/* KEYWORD HOOK */
+int	(*funhook)(char *kwd, int n);				/* FUNCTION CALL HOOK */
+void initbasic(int comp) { pc=prg; sp=stk+STKSZ; csp=cstk+STKSZ; stabp=stab; compile=comp; registerhook(); }
 void bad(char *msg) { printf("ERROR %d: %s\n", lnum, msg); globalerror = 1; }
 void err(char *msg) { printf("ERROR %d: %s\n",lmap[pc-prg-1],msg); globalerror = 2; }
 
@@ -60,8 +63,6 @@ void err(char *msg) { printf("ERROR %d: %s\n",lmap[pc-prg-1],msg); globalerror =
 void emit(int opcode()) { lmap[cpc]=lnum; prg[cpc++]=opcode; }
 void inst(int opcode(), Val x) { emit(opcode); emit((Code)x); }
 Val *bound(Val *mem, int n) { if (n<1 || n>*mem) err("BOUNDS"); return mem+n;  }
-//void BYE_() { longjmp(trap,4); }
-//void BREAK_() { longjmp(trap,3); }
 void BYE_() { globalerror = 4; }
 void BREAK_() { globalerror = 3; }
 
@@ -274,18 +275,25 @@ void stmt()
 		break;
 	case END:
 		need(*csp++), compile--;						/* MATCH BLOCK */
-		if (csp[-1]==SUB) {
+		if (csp[-1]==SUB) 
+		{
 			inst(RETURN_, *csp++);
 			prg[*csp++]=(Code)cpc;						/* PATCH JUMP */
-		} else if (csp[-1]==WHILE) {
+		} 
+		else if (csp[-1]==WHILE) 
+		{
 			prg[*csp++]=(Code)(cpc+2);					/* PATCH TEST */
 			inst(JMP_, *csp++);							/* LOOP TO TEST */
-		} else if (csp[-1]==FOR) {
+		} 
+		else if (csp[-1]==FOR) 
+		{
 			prg[*csp++]=(Code)(cpc+4);					/* PATCH TEST */
 			inst(NEXT_, *csp++);						/* INCREMENT */
 			inst(JMP_, *csp++);							/* LOOP TO TEST */
 			temp--;										/* ONE LESS TEMP */
-		} else if (csp[-1]==IF) {
+		} 
+		else if (csp[-1]==IF) 
+		{
 			for (n=*csp++; n--; )						/* PATCH BLOCK ENDS */
 				prg[*csp++]=(Code)cpc;
 			if ((n=*csp++)) prg[n]=(Code)cpc; 			/* PATCH "ELSE" */
@@ -326,11 +334,6 @@ int interp(FILE *sf)
 	for (;;) 
 	{
 		globalerror=0;
-		//int code=setjmp(trap);			/* RETURN ON ERROR */
-		//if (code==1 && sf!=stdin) return 1;	/* FILE SYNTAX ERROR */
-		//if (code==2) opc=pc;			/* FAULT */
-		//if (code==3) pc=opc?opc:pc, cpc=ipc;	/* "BREAK" */
-		//if (code==4) return 0;			/* "BYE" */
 		for (;;) 
 		{
 			if (sf==stdin) printf("%d> ",lnum+1,stdout);
@@ -369,3 +372,41 @@ int interp(FILE *sf)
 	}
 	return 0;											/* NEVER REACHED */
 }
+
+
+//------------------------------------
+//USER DEFINED FUNCTIONS
+//------------------------------------
+int PRINTS_() 
+{ 
+	puts((char*)*sp++); STEP; 
+}
+
+int kwdhook_(char *msg) 
+{
+	///if we found a token we put the pointer to the function into the program queue
+	if (!strcmp(msg,"PRINTS"))
+		expr(), emit(PRINTS_);
+	else	
+		return 0;
+	return 1;
+}
+
+int funhook_(char *msg, int n) 
+{
+	if (!strcmp(msg,"PRINTS"))
+		expr(), emit(PRINTS_);
+	else	
+		return 0;
+	return 1;
+}
+
+
+void registerhook() 
+{
+    kwdhook=kwdhook_;
+    funhook=funhook_;
+}
+//-------------------------------------------------------------
+
+#endif
