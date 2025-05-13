@@ -373,40 +373,9 @@ int interp(FILE *sf)
 	return 0;											/* NEVER REACHED */
 }
 
-
-//------------------------------------
-//USER DEFINED FUNCTIONS
-//------------------------------------
-int PRINTS_() 
-{ 
-	puts((char*)*sp++); STEP; 
-}
-
-int kwdhook_(char *msg) 
-{
-	///if we found a token we put the pointer to the function into the program queue
-	if (!strcmp(msg,"PRINTS"))
-		expr(), emit(PRINTS_);
-	else	
-		return 0;
-	return 1;
-}
-
-int funhook_(char *msg, int n) 
-{
-	if (!strcmp(msg,"PRINTS"))
-		expr(), emit(PRINTS_);
-	else	
-		return 0;
-	return 1;
-}
-
-
-void registerhook() 
-{
-    kwdhook=kwdhook_;
-    funhook=funhook_;
-}
-//-------------------------------------------------------------
+//This file includes the user extensions. It needs a lot of stuff from this file so we include it at the end. 
+//Because I did not not take computer science at university to not do this.
+//MS Copilot comment -> "This is a hack, but it works.""   
+#include "extensions.h"
 
 #endif
