@@ -20,13 +20,12 @@ int kwdhook_(char *msg)
 	return 1;
 }
 
+
+//Hmmm... This is an array of variable namees and the number of arguments passed to a function.
+//But how do we know what function was called? And how do we get to the variable contents?
 int funhook_(char *msg, int n) 
 {
-	if (!strcmp(msg,"PRINTS"))
-		expr(), emit(PRINTS_);
-	else	
-		return 0;
-	return 1;
+	return 0;
 }
 
 

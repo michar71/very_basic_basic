@@ -217,8 +217,6 @@ void base()
 	if (neg)		emit(SUBS_);	/* NEGATE */
 }
 
-
-
 /* STATEMENT */
 void stmt() 
 {	
@@ -328,9 +326,20 @@ void stmt()
 	if (!want(0))		bad("TOKENS AFTER STATEMENT");
 }
 
+int check_error(FILE *sf)
+{
+	if (globalerror==1 && sf!=stdin) return 1;	/* FILE SYNTAX ERROR */
+	if (globalerror==2) {opc=pc; return -1;}	/* FAULT */
+	if (globalerror==3) {pc=opc?opc:pc, cpc=ipc;return -1;};	/* "BREAK" */
+	if (globalerror==4) return 0;				/* "BYE" */
+	globalerror = 0;
+}
+
+
 /* INTERPRETER LOOP */
 int interp(FILE *sf) 
 {	
+	int error = 0;
 	for (;;) 
 	{
 		globalerror=0;
@@ -341,11 +350,7 @@ int interp(FILE *sf)
 			lnum++, ungot=0, stmt();	/* PARSE AND COMPILE */
 
 			//Handle Errors
-			if (globalerror==1 && sf!=stdin) return 1;		/* FILE SYNTAX ERROR */
-			if (globalerror==2) opc=pc;					/* FAULT */
-			if (globalerror==3) pc=opc?opc:pc, cpc=ipc;	/* "BREAK" */
-			if (globalerror==4) return 0;				/* "BYE" */
-			globalerror = 0;
+			if ((error=check_error(sf)) < 0) return error; 
 
 			if (compile) continue;						/* CONTINUE COMPILING */
 			opc=pc, pc=prg+ipc;							/* START OF IMMEDIATE */
@@ -353,22 +358,13 @@ int interp(FILE *sf)
 			DRIVER;  									/* MOVE PROGRAM FORWARD */	
 
 			//Handle Errors
-			if (globalerror==1 && sf!=stdin) return 1;	/* FILE SYNTAX ERROR */
-			if (globalerror==2) opc=pc;					/* FAULT */
-			if (globalerror==3) pc=opc?opc:pc, cpc=ipc;	/* "BREAK" */
-			if (globalerror==4) return 0;	
-			globalerror = 0;
+			if ((error=check_error(sf)) < 0) return error; 
 		}
 		ipc=cpc+1, compile=0, fclose(sf), sf=stdin; 	/* DONE COMPILING */
 		emit((int (*)())BYE_);							/* RUN PROGRAM */
 		DRIVER;  										/* MOVE PROGRAM FORWARD */				
-		//Handle Errors
-		if (globalerror==1 && sf!=stdin) return 1;		/* FILE SYNTAX ERROR */
-		if (globalerror==2) opc=pc;						/* FAULT */
-		if (globalerror==3) pc=opc?opc:pc, cpc=ipc;		/* "BREAK" */
-		if (globalerror==4) return 0;
-		globalerror = 0;
-	
+			//Handle Errors
+			if ((error=check_error(sf)) < 0) return error; 
 	}
 	return 0;											/* NEVER REACHED */
 }
