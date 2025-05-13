@@ -1,14 +1,11 @@
 #ifndef basic_h
 #define basic_h
 
-
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-
-
 
 //Forward declarations
 void base();
@@ -38,7 +35,7 @@ Val	stk[STKSZ],*sp;								/* RUN-TIME STACK */
 Val	value[VARS];								/* VARIABLE VALUES */
 char	name[VARS][SYMSZ];						/* VARIABLE NAMES */
 int	sub[VARS][LOCS+2];							/* N,LOCAL VAR INDEXES */
-int	mode[VARS];									/* 0=NONE, 1=DIM, 2=SUB */
+int	mode[VARS];									/* 0=NONE, 1=DIM, 2=SUB  -> Should be UINT8*/
 Val	ret;										/* FUNCTION RETURN VALUE */
 int	cstk[STKSZ], *csp;							/* COMPILER STACK */
 int	nvar,cursub,temp,compile,ipc,(**opc)(); 	/* COMPILER STATE */
@@ -49,7 +46,7 @@ char	stab[STRSZ], *stabp;					/* STRING TABLE */
 #define B	sp[0]								/* RIGHT OPERAND */
 #define PCV	((Val)*pc++)						/* GET IMMEDIATE */
 #define STEP	return 1						/* CONTINUE RUNNING */
-#define DRIVER	while (((*pc++)()) && (globalerror == 0))	/* RUN PROGRAM */
+#define DRIVER	while (((*pc++)()) && (globalerror == 0))	/* RUN PROGRAM. BAIL ON ERROR*/
 #define LOC(N) value[sub[v][N+2]]				/* SUBROUTINE LOCAL */
 
 
@@ -59,11 +56,11 @@ void initbasic(int comp) { pc=prg; sp=stk+STKSZ; csp=cstk+STKSZ; stabp=stab; com
 void bad(char *msg) { printf("ERROR %d: %s\n", lnum, msg); globalerror = 1; }
 void err(char *msg) { printf("ERROR %d: %s\n",lmap[pc-prg-1],msg); globalerror = 2; }
 
-
+void freedim() { int i; for (i=0; i<nvar; i++) if (mode[i]==1) free((Val*)value[i]); }
 void emit(int opcode()) { lmap[cpc]=lnum; prg[cpc++]=opcode; }
 void inst(int opcode(), Val x) { emit(opcode); emit((Code)x); }
 Val *bound(Val *mem, int n) { if (n<1 || n>*mem) err("BOUNDS"); return mem+n;  }
-void BYE_() { globalerror = 4; }
+void BYE_() { freedim();globalerror = 4; }
 void BREAK_() { globalerror = 3; }
 
 int RESUME_() { pc=opc? opc:pc; opc=pc; cpc=ipc; STEP; }
@@ -116,7 +113,7 @@ int RV_() { *--sp=ret; STEP; }
 int DROP_() { sp+=PCV; STEP; }
 void DIM_() 
 { 
-	int v=PCV, n=*sp++; Val *mem=calloc(sizeof(Val),n+1);
+	int v=PCV, n=*sp++; Val *mem=calloc(sizeof(Val),n+1);      //TODO We need to free this memory on BYE_ !!!
 	mem[0]=n; value[v]=(Val)mem;
 }
 int LOADI_() { Val x=*sp++; x=*bound((Val*)value[PCV],x); *--sp=x; STEP; }
@@ -328,11 +325,20 @@ void stmt()
 
 int check_error(FILE *sf)
 {
-	if (globalerror==1 && sf!=stdin) return 1;	/* FILE SYNTAX ERROR */
-	if (globalerror==2) {opc=pc; return -1;}	/* FAULT */
-	if (globalerror==3) {pc=opc?opc:pc, cpc=ipc;return -1;};	/* "BREAK" */
-	if (globalerror==4) return 0;				/* "BYE" */
+	if (globalerror==1 && sf!=stdin)
+	{ 
+		globalerror = 0;
+		return 1;									/* FILE SYNTAX ERROR */
+	}
+	if (globalerror==4) 
+	{
+		globalerror = 0;
+		return 0;									/* "BYE" */	
+	}
+	if (globalerror==2) {opc=pc;}					/* FAULT */
+	if (globalerror==3) {pc=opc?opc:pc, cpc=ipc;};	/* "BREAK" */
 	globalerror = 0;
+	return -1;
 }
 
 
@@ -350,7 +356,7 @@ int interp(FILE *sf)
 			lnum++, ungot=0, stmt();	/* PARSE AND COMPILE */
 
 			//Handle Errors
-			if ((error=check_error(sf)) < 0) return error; 
+			if ((error=check_error(sf)) > -1) return error; 
 
 			if (compile) continue;						/* CONTINUE COMPILING */
 			opc=pc, pc=prg+ipc;							/* START OF IMMEDIATE */
@@ -358,13 +364,13 @@ int interp(FILE *sf)
 			DRIVER;  									/* MOVE PROGRAM FORWARD */	
 
 			//Handle Errors
-			if ((error=check_error(sf)) < 0) return error; 
+			if ((error=check_error(sf)) > -1) return error; 
 		}
 		ipc=cpc+1, compile=0, fclose(sf), sf=stdin; 	/* DONE COMPILING */
 		emit((int (*)())BYE_);							/* RUN PROGRAM */
 		DRIVER;  										/* MOVE PROGRAM FORWARD */				
-			//Handle Errors
-			if ((error=check_error(sf)) < 0) return error; 
+		//Handle Errors
+		if ((error=check_error(sf)) > -1) return error; 
 	}
 	return 0;											/* NEVER REACHED */
 }

@@ -7,8 +7,8 @@
 
 
     "request": "launch",
-    "program": "${workspaceFolder}/basic",
-    "args": ["./test.bas"],
+    "program": "${workspaceFolder}/main",
+    "args": ["test.bas"],
     "cwd": "${workspaceFolder}"
 
 }

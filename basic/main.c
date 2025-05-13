@@ -5,6 +5,8 @@
 int main(int argc, char **argv) {
 	FILE *sf=stdin;
 	initbasic(0);
+
+//    argv[1] = "test.bas";
 	if (argv[1])
 	{
 		if ((sf=fopen(argv[1],"r")))
