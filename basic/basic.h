@@ -13,11 +13,16 @@ void registerhook();
 
 //Defines
 #define SYMSZ	16			/* SYMBOL SIZE */
-#define PRGSZ	65536		/* PROGRAM SIZE */
+#define PRGSZ	32767		/* PROGRAM SIZE */
 #define STKSZ	256			/* STACK SIZE */
 #define STRSZ	4096		/* STRING TABLE SIZE */
-#define VARS	512			/* VARIABLE COUNT */
+#define VARS	256			/* VARIABLE COUNT */
 #define LOCS	8			/* LOCAL COUNT */
+
+#define VARMODE_NONE 0
+#define VARMODE_DIM 1
+#define VARMODE_SUB 2
+#define VARMODE_FLOAT 3  //Future extension. Lots of open questions how that wouldwork in subroutines and arrays and functions...
 
 typedef ptrdiff_t	Val;	/* SIGNED INT/POINTER */
 typedef int		(*Code)();	/* BYTE-CODE */
@@ -28,19 +33,19 @@ enum {	NAME=1,NUMBER,STRING,LP,RP,COMMA,ADD,SUBS,MUL,DIV,MOD,
 char	*kwd[]={ "AND","OR","FORMAT","SUB","END","RETURN","LOCAL","WHILE",
 	"FOR","TO","IF","ELSE","THEN","DIM","UBOUND","BYE","BREAK","RESUME",0 };
 
-char	lbuf[256],tokn[SYMSZ],*lp;				/* LEXER STATE */
+char lbuf[256],tokn[SYMSZ],*lp; 				/* LEXER STATE */
 int	lnum,tok,tokv,ungot;						/* LEXER STATE */
 int	(*prg[PRGSZ])(),(**pc)(),cpc,lmap[PRGSZ]; 	/* COMPILED PROGRAM */
 Val	stk[STKSZ],*sp;								/* RUN-TIME STACK */
 Val	value[VARS];								/* VARIABLE VALUES */
-char	name[VARS][SYMSZ];						/* VARIABLE NAMES */
+char name[VARS][SYMSZ];							/* VARIABLE NAMES */
 int	sub[VARS][LOCS+2];							/* N,LOCAL VAR INDEXES */
-int	mode[VARS];									/* 0=NONE, 1=DIM, 2=SUB  -> Should be UINT8*/
+uint8_t	mode[VARS];								/* 0=NONE, 1=DIM, 2=SUB*/
 Val	ret;										/* FUNCTION RETURN VALUE */
 int	cstk[STKSZ], *csp;							/* COMPILER STACK */
 int	nvar,cursub,temp,compile,ipc,(**opc)(); 	/* COMPILER STATE */
 int globalerror;								/* GLOBAL ERROR */
-char	stab[STRSZ], *stabp;					/* STRING TABLE */
+char stab[STRSZ], *stabp;   					/* STRING TABLE */
 
 #define A	sp[1]								/* LEFT OPERAND */
 #define B	sp[0]								/* RIGHT OPERAND */
@@ -56,7 +61,7 @@ void initbasic(int comp) { pc=prg; sp=stk+STKSZ; csp=cstk+STKSZ; stabp=stab; com
 void bad(char *msg) { printf("ERROR %d: %s\n", lnum, msg); globalerror = 1; }
 void err(char *msg) { printf("ERROR %d: %s\n",lmap[pc-prg-1],msg); globalerror = 2; }
 
-void freedim() { int i; for (i=0; i<nvar; i++) if (mode[i]==1) free((Val*)value[i]); }
+void freedim() { int i; for (i=0; i<nvar; i++) if (mode[i]==VARMODE_DIM) free((Val*)value[i]); }
 void emit(int opcode()) { lmap[cpc]=lnum; prg[cpc++]=opcode; }
 void inst(int opcode(), Val x) { emit(opcode); emit((Code)x); }
 Val *bound(Val *mem, int n) { if (n<1 || n>*mem) err("BOUNDS"); return mem+n;  }
@@ -192,7 +197,7 @@ void base()
 	{
 		int var=tokv;
 		if (want(LP))
-			if (mode[var]==1) /* DIM */
+			if (mode[var]==VARMODE_DIM) /* DIM */
 				expr(), need(RP), inst(LOADI_, var);
 			else 
 			{
@@ -201,7 +206,7 @@ void base()
 				need(RP);
 				if (!funhook || !funhook(name[var],n)) 
 				{
-					if (mode[var]!=2 || n!=sub[var][1])
+					if (mode[var]!=VARMODE_SUB || n!=sub[var][1])
 						bad("BAD SUB/ARG COUNT");
 					inst(CALL_, var);
 					emit(RV_);
@@ -304,7 +309,7 @@ void stmt()
 			int n=0; LIST(expr(); n++);
 			if (!funhook || !funhook(name[var],n))
 			 {
-				if (mode[var]!=2 || n!=sub[var][1])
+				if (mode[var]!=VARMODE_SUB || n!=sub[var][1])
 					bad("BAD SUB/ARG COUNT");
 				inst(CALL_, var);
 			}
