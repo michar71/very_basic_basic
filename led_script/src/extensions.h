@@ -91,8 +91,6 @@ int PRINTS_()
 }
 
 
-
-
 //This looks for a keyword and adds the associated function pointer to the program queue.
 int kwdhook_(char *msg) 
 {

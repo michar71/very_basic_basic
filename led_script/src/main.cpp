@@ -3,6 +3,7 @@
 #include "SPIFFS.h"
 #include "FastLED.h"
 #include <SimpleSerialShell.h>
+#include "basic.h"
 
 #define BUTTON_PIN 0
 #define RGB_DATA_PIN  14
@@ -21,9 +22,109 @@ run (Interacive basic shell)
 run file
 list file
 load file  (Text after this will be safed to file system unitl a "break" character is received. Existing file will be overwritten)
-delete file 
+del file 
+ren file
 */
 
+/*
+SPIFFS
+*/
+
+/* You only need to format SPIFFS the first time you run a
+   test or else use the SPIFFS plugin to create a partition
+   https://github.com/me-no-dev/arduino-esp32fs-plugin */
+   #define FORMAT_SPIFFS_IF_FAILED true
+
+void renameFile(fs::FS &fs, const char *path1, const char *path2) 
+{
+    Serial.printf("Renaming file %s to %s\r\n", path1, path2);
+    if (fs.rename(path1, path2)) {
+      Serial.println("- file renamed");
+    } else {
+      Serial.println("- rename failed");
+    }
+  }
+  
+  void deleteFile(fs::FS &fs, const char *path) 
+  {
+    Serial.printf("Deleting file: %s\r\n", path);
+    if (fs.remove(path)) {
+      Serial.println("- file deleted");
+    } else {
+      Serial.println("- delete failed");
+    }
+  }
+
+
+void listDir(fs::FS &fs, const char *dirname, uint8_t levels) 
+{
+  Serial.printf("Listing directory: %s\r\n", dirname);
+
+  File root = fs.open(dirname);
+  if (!root) {
+    Serial.println("- failed to open directory");
+    return;
+  }
+  if (!root.isDirectory()) {
+    Serial.println(" - not a directory");
+    return;
+  }
+
+  File file = root.openNextFile();
+  while (file) {
+    if (file.isDirectory()) {
+      Serial.print("  DIR : ");
+      Serial.println(file.name());
+      if (levels) {
+        listDir(fs, file.path(), levels - 1);
+      }
+    } else {
+      Serial.print("  FILE: ");
+      Serial.print(file.name());
+      Serial.print("\tSIZE: ");
+      Serial.println(file.size());
+    }
+    file = root.openNextFile();
+  }
+}
+
+void readFile(fs::FS &fs, const char *path) 
+{
+    Serial.printf("Listing file: %s\r\n", path);
+    Serial.println();
+  
+    File file = fs.open(path);
+    if (!file || file.isDirectory()) 
+    {
+      Serial.println("- failed to open file for reading");
+      return;
+    }
+  
+    while (file.available()) 
+    {
+      Serial.write(file.read());
+    }
+    file.close();
+  }
+  
+  void writeFile(fs::FS &fs, const char *path, const char *message) {
+    Serial.printf("Writing file: %s\r\n", path);
+  
+    File file = fs.open(path, FILE_WRITE);
+    if (!file) {
+      Serial.println("- failed to open file for writing");
+      return;
+    }
+    if (file.print(message)) 
+    {
+      Serial.println("- file written");
+    } 
+    else 
+    {
+      Serial.println("- write failed");
+    }
+    file.close();
+  }
 
 /*
 Commands
@@ -31,8 +132,181 @@ Commands
 int test(int argc, char **argv) 
 {
   Serial.println("Test function called");
+  Serial.print(argc);
+  Serial.println(" Arguments");
+  for (int ii=0;ii<argc;ii++)
+  {
+    Serial.print("Argument ");
+    Serial.print(ii);
+    Serial.print(" : ");
+    Serial.println(argv[ii]);
+  }  
   return 0;
 };
+
+int deleteFile(int argc, char **argv) 
+{
+    if (argc != 2)
+    {
+        Serial.println("Wrong argument count");
+        return 1;
+    }
+    deleteFile(SPIFFS,argv[1]);
+    return 0;
+}
+
+int renameFile(int argc, char **argv) 
+{
+    if (argc != 3)
+    {
+        Serial.println("Wrong argument count");
+        return 1;
+    }
+    renameFile(SPIFFS,argv[1], argv[2]);
+    return 0;
+}
+
+int listFile(int argc, char **argv) 
+{
+    if (argc != 2)
+    {
+        Serial.println("Wrong argument count");
+        return 1;
+    }
+
+    readFile(SPIFFS,argv[1]); 
+    return 0;
+}
+
+int listDir(int argc, char **argv) 
+{
+    if (argc != 1)
+    {
+        Serial.println("Wrong argument count");
+        return 1;
+    }
+    listDir(SPIFFS,"/",1); 
+    return 0;
+}
+
+int loadFile(int argc, char **argv) 
+{
+    if (argc != 2)
+    {
+        Serial.println("Wrong argument count");
+        return 1;       
+    }
+    else
+    {
+        int linecount = 0;
+        int charcount = 0;
+        char line[256];
+        char inchar;
+        bool isDone = false;
+        Serial.print("Ready for file ");
+        Serial.println(argv[1]);
+        //Flush serial buffer
+        Serial.flush();
+        //create file
+        File file = SPIFFS.open(argv[1], FILE_WRITE);
+        if (!file) 
+        {
+            Serial.println("- failed to open file for writing");
+            return 1;
+        }
+
+        do
+        {
+            //Get one character from serial port
+            if (Serial.available())
+            {
+                inchar = Serial.read();
+                //Check if its a break character
+                if (inchar == 28) 
+                {
+                    //Break loop 
+                    break;
+                }
+                else
+                {
+                    //Wait for a full line
+                    line[charcount] = inchar;
+                    charcount++;
+                    if (charcount>254)
+                    {
+                        Serial.print("Line ");
+                        Serial.print(linecount+1);
+                        Serial.println(" too long");
+                        break;
+                    }
+                    if (inchar == '\n')
+                    {
+                        //Write line
+                        if (file.print(line)) 
+                        {
+                        } 
+                        else 
+                        {
+                          Serial.println("Write Error");
+                          file.close();
+                          return 1;
+                        }
+                        //increase line counter
+                        linecount++;
+                        //clear line
+                        charcount = 0;
+                        line[0] = 0;
+            
+                    }
+                }
+            }
+        }
+        while (isDone == false);
+        //close file
+        file.close();
+
+        Serial.print(linecount);
+        Serial.println(" Lines writtren to file");
+        return 0;
+    }
+}
+
+int runBasic(int argc, char **argv) 
+{
+    if (argc == 1)
+    {
+        Serial.println("RUNNING IN INTERACTIVE MODE");
+        int res = interp(NULL);
+        if (res != 0)
+        {
+            Serial.print("Error Exit Code: ");
+            Serial.println(res);
+        }   
+        else 
+            Serial.println("DONE");
+        return 0;
+        return 0;
+    }
+    else if (argc == 2)
+    {
+        Serial.print("RUNNING ");
+        Serial.println(argv[1]);
+        int res = interp(argv[1]);
+        if (res != 0)
+        {
+            Serial.print("Error Exit Code: ");
+            Serial.println(res);
+        }   
+        else 
+            Serial.println("DONE");
+        return 0;
+    }
+    else
+    {
+        Serial.println("Wrong argument count");
+        return 1;
+    }
+}
 
 /*
 LED Stuff
@@ -87,7 +361,10 @@ void setup()
     shell.attach(Serial);
     shell.addCommand(F("test"), test);
 
-    SPIFFS.begin(); // Initialize SPIFFS
+    if (!SPIFFS.begin(FORMAT_SPIFFS_IF_FAILED)) {
+        Serial.println("SPIFFS Mount Failed");
+        return;
+    }
 
     Serial.println(F("Ready."));
     blink_leds(CRGB::Green);

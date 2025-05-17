@@ -7,6 +7,11 @@
 #include <string.h>
 #include <ctype.h>
 
+#include <Arduino.h>
+#include "FS.h"
+#include "SPIFFS.h"
+#include "FastLED.h"
+
 //Forward declarations
 void base();
 void registerhook();
@@ -118,7 +123,7 @@ int RV_() { *--sp=ret; STEP; }
 int DROP_() { sp+=PCV; STEP; }
 void DIM_() 
 { 
-	int v=PCV, n=*sp++; Val *mem=calloc(sizeof(Val),n+1);      //TODO We need to free this memory on BYE_ !!!
+	int v=PCV, n=*sp++; Val *mem=(Val*)calloc(sizeof(Val),n+1);      //TODO We need to free this memory on BYE_ !!!
 	mem[0]=n; value[v]=(Val)mem;
 }
 int LOADI_() { Val x=*sp++; x=*bound((Val*)value[PCV],x); *--sp=x; STEP; }
@@ -328,9 +333,9 @@ void stmt()
 	if (!want(0))		bad("TOKENS AFTER STATEMENT");
 }
 
-int check_error(FILE *sf)
+int check_error(char* filen)
 {
-	if (globalerror==1 && sf!=stdin)
+	if (globalerror==1 && filen!=NULL)
 	{ 
 		globalerror = 0;
 		return 1;									/* FILE SYNTAX ERROR */
@@ -348,20 +353,33 @@ int check_error(FILE *sf)
 
 
 /* INTERPRETER LOOP */
-int interp(FILE *sf) 
+int interp(char* filen) 
 {	
+	File file;
 	int error = 0;
+	//Open file
+	if (filen != NULL)
+	{
+		file = SPIFFS.open(filen);
+	}
 	for (;;) 
 	{
 		globalerror=0;
 		for (;;) 
 		{
-			if (sf==stdin) printf("%d> ",lnum+1,stdout);
-			if (!fgets(lp=lbuf,sizeof lbuf,sf)) break;
+			if (filen==NULL) printf("%d> ",lnum+1,stdout);
+			if (file)
+			{
+				if (!file.readBytesUntil('\n', lp=lbuf,sizeof lbuf)); break;
+			}
+			else
+			{
+				if (!Serial.readBytesUntil('\n', lp=lbuf,sizeof lbuf)); break;
+			}
 			lnum++, ungot=0, stmt();	/* PARSE AND COMPILE */
 
 			//Handle Errors
-			if ((error=check_error(sf)) > -1) return error; 
+			if ((error=check_error(filen)) > -1) return error; 
 
 			if (compile) continue;						/* CONTINUE COMPILING */
 			opc=pc, pc=prg+ipc;							/* START OF IMMEDIATE */
@@ -369,13 +387,13 @@ int interp(FILE *sf)
 			DRIVER;  									/* MOVE PROGRAM FORWARD */	
 
 			//Handle Errors
-			if ((error=check_error(sf)) > -1) return error; 
+			if ((error=check_error(filen)) > -1) return error; 
 		}
-		ipc=cpc+1, compile=0, fclose(sf), sf=stdin; 	/* DONE COMPILING */
+		ipc=cpc+1, compile=0, file.close(), filen=NULL; 	/* DONE COMPILING */
 		emit((int (*)())BYE_);							/* RUN PROGRAM */
 		DRIVER;  										/* MOVE PROGRAM FORWARD */				
 		//Handle Errors
-		if ((error=check_error(sf)) > -1) return error; 
+		if ((error=check_error(filen)) > -1) return error; 
 	}
 	return 0;											/* NEVER REACHED */
 }
