@@ -144,7 +144,7 @@ int test(int argc, char **argv)
   return 0;
 };
 
-int deleteFile(int argc, char **argv) 
+int delFile(int argc, char **argv) 
 {
     if (argc != 2)
     {
@@ -155,7 +155,7 @@ int deleteFile(int argc, char **argv)
     return 0;
 }
 
-int renameFile(int argc, char **argv) 
+int renFile(int argc, char **argv) 
 {
     if (argc != 3)
     {
@@ -346,27 +346,45 @@ void setup()
     // put your setup code here, to run once:
 
     pinMode(LED_BUILTIN, OUTPUT);
+    pinMode(BUTTON_PIN,INPUT_PULLUP);
+
+    FastLED.addLeds<WS2812B, RGB_DATA_PIN, RGB>(leds, NUM_LEDS);
     blink_leds(CRGB::Red);
-    FastLED.addLeds<WS2812B, RGB_DATA_PIN, GRB>(leds, NUM_LEDS);
 
     Serial.begin(115200);
-    while (!Serial) 
+    //while (!Serial) 
     {
         // wait for serial port to connect. Needed for native USB port only
         // AND you want to block until there's a connection
         // otherwise the shell can quietly drop output.
     }
 
+    for(int ii=0;ii<300;ii++)
+    {
+        delay(30);
+        Serial.print(".");
+    }
+    Serial.println("");
+
+    FastLED.addLeds<WS2812B, RGB_DATA_PIN, GRB>(leds, NUM_LEDS);
+    blink_leds(CRGB::Blue);
+
     //example
     shell.attach(Serial);
     shell.addCommand(F("test"), test);
-
-    if (!SPIFFS.begin(FORMAT_SPIFFS_IF_FAILED)) {
+    shell.addCommand(F("run"), runBasic);
+    shell.addCommand(F("dir"), listDir);    
+    shell.addCommand(F("list"), listFile);
+    shell.addCommand(F("ren"), renFile);
+    shell.addCommand(F("del"), delFile);
+    shell.addCommand(F("load"), loadFile);        
+    
+    if (!SPIFFS.begin(FORMAT_SPIFFS_IF_FAILED)) 
+    {
         Serial.println("SPIFFS Mount Failed");
-        return;
     }
 
-    Serial.println(F("Ready."));
+    Serial.println("Ready.");
     blink_leds(CRGB::Green);
 }
 

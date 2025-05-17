@@ -18,9 +18,9 @@ void registerhook();
 
 //Defines
 #define SYMSZ	16			/* SYMBOL SIZE */
-#define PRGSZ	32767		/* PROGRAM SIZE */
+#define PRGSZ	65535/4		/* PROGRAM SIZE */
 #define STKSZ	256			/* STACK SIZE */
-#define STRSZ	4096		/* STRING TABLE SIZE */
+#define STRSZ	2048		/* STRING TABLE SIZE */
 #define VARS	256			/* VARIABLE COUNT */
 #define LOCS	8			/* LOCAL COUNT */
 
