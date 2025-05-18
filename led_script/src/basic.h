@@ -62,9 +62,9 @@ char stab[STRSZ], *stabp;   					/* STRING TABLE */
 
 int	(*kwdhook)(char *kwd);						/* KEYWORD HOOK */
 int	(*funhook)(char *kwd, int n);				/* FUNCTION CALL HOOK */
-void initbasic(int comp) { pc=prg; sp=stk+STKSZ; csp=cstk+STKSZ; stabp=stab; compile=comp; registerhook(); }
-void bad(char *msg) { printf("ERROR %d: %s\n", lnum, msg); globalerror = 1; }
-void err(char *msg) { printf("ERROR %d: %s\n",lmap[pc-prg-1],msg); globalerror = 2; }
+void initbasic(int comp) { pc=prg; sp=stk+(int)STKSZ; csp=cstk+(int)STKSZ; stabp=stab; compile=comp; registerhook(); }
+void bad(char *msg) { Serial.printf("ERROR %d: %s\n", lnum, msg); globalerror = 1; }
+void err(char *msg) { Serial.printf("ERROR %d: %s\n",lmap[pc-prg-1],msg); globalerror = 2; }
 
 void freedim() { int i; for (i=0; i<nvar; i++) if (mode[i]==VARMODE_DIM) free((Val*)value[i]); }
 void emit(int opcode()) { lmap[cpc]=lnum; prg[cpc++]=opcode; }
@@ -77,13 +77,13 @@ int RESUME_() { pc=opc? opc:pc; opc=pc; cpc=ipc; STEP; }
 int NUMBER_() { *--sp=PCV; STEP; }
 int LOAD_() { *--sp=value[PCV]; STEP; }
 int STORE_() { value[PCV]=*sp++; STEP; }
-void ECHO_() { printf("%d\n",*sp++); }
+void ECHO_() { Serial.printf("%d\n",*sp++); }
 int FORMAT_() { char *f; Val n=PCV, *ap=(sp+=n)-1;
 	for (f=stab + *sp++; *f; f++)
-		if (*f=='%') printf("%d", (int)*ap--);
-		else if (*f=='$') printf("%s", (char*)*ap--);
-		else putchar(*f);
-	putchar('\n'); STEP;
+		if (*f=='%') Serial.printf("%d", (int)*ap--);
+		else if (*f=='$') Serial.printf("%s", (char*)*ap--);
+		else Serial.print(*f);
+	Serial.print('\n'); STEP;
 }
 int ADD_() { A+=B; sp++; STEP; };
 int SUBS_() { A-=B; sp++; STEP; };
@@ -178,15 +178,15 @@ void need(int type)
 
 int (*bin[])()={ADD_,SUBS_,MUL_,DIV_,MOD_,EQ_,LT_,GT_, NE_,LE_,GE_,AND_,OR_};
 
-#define BIN(NAME,LO,HI,ELEM)  int NAME() { int (*o)(); \
+#define BINN(NAME,LO,HI,ELEM)  int NAME() { int (*o)(); \
 	ELEM(); \
 	while (want(0), LO<=tok && tok<=HI) \
 		o=bin[tok-ADD], read(), ELEM(), emit(o); \
 	return 0; }
-BIN(factor,MUL,MOD,base)
-BIN(addition,ADD,SUBS,factor)
-BIN(relation,EQ,GE,addition)
-BIN(expr,AND,OR,relation)
+BINN(factor,MUL,MOD,base)
+BINN(addition,ADD,SUBS,factor)
+BINN(relation,EQ,GE,addition)
+BINN(expr,AND,OR,relation)
 
 
 
@@ -238,8 +238,9 @@ void stmt()
 		if (!compile) bad("SUB MUST BE COMPILED");
 		compile++;										/* MUST BALANCE WITH END */
 		need(NAME), mode[cursub=var=tokv]=2; 			/* SUB NAME */
-		n=0; LIST(need(NAME); sub[var][n+++2]=tokv); 	/* PARAMS */
-		*--csp=cpc+1, inst(JMP_,0);						/* JUMP OVER CODE */
+		n=0; LIST(need(NAME); sub[var][n+++2]=tokv); 	/* PARAMS */		
+		*--csp=cpc+1;									/* JUMP OVER CODE */
+		 inst(JMP_,0);						
 		sub[var][0]=sub[var][1]=n;						/* LOCAL=PARAM COUNT */
 		value[var]=cpc;									/* ADDRESS */
 		*--csp=var, *--csp=SUB;							/* FOR "END" CLAUSE */
@@ -356,25 +357,42 @@ int check_error(char* filen)
 int interp(char* filen) 
 {	
 	File file;
+	int len;
 	int error = 0;
 	//Open file
 	if (filen != NULL)
 	{
 		file = SPIFFS.open(filen);
+		if (file.size() > 0)
+			Serial.println("File Opened");
+		else
+		{
+			Serial.println("File does not exists");
+			return 0;
+		}	
 	}
 	for (;;) 
 	{
 		globalerror=0;
 		for (;;) 
 		{
-			if (filen==NULL) printf("%d> ",lnum+1,stdout);
-			if (file)
+			yield();
+			if (filen==NULL) Serial.printf("%d> ",lnum+1);
+			if (filen!=NULL)
 			{
-				if (!file.readBytesUntil('\n', lp=lbuf,sizeof lbuf)); break;
+				len  = file.readBytesUntil('\n', lp=lbuf,sizeof lbuf);
+				lbuf[len] = 0;
+				lp = lbuf;
+				if (file.available()==false)
+					break;
 			}
 			else
 			{
-				if (!Serial.readBytesUntil('\n', lp=lbuf,sizeof lbuf)); break;
+				len  = Serial.readBytesUntil('\n', lp=lbuf,sizeof lbuf);
+				lbuf[len] = 0;
+				lp = lbuf;
+				if (lbuf[0] == 28)  //Break character
+					break;
 			}
 			lnum++, ungot=0, stmt();	/* PARSE AND COMPILE */
 
@@ -389,7 +407,7 @@ int interp(char* filen)
 			//Handle Errors
 			if ((error=check_error(filen)) > -1) return error; 
 		}
-		ipc=cpc+1, compile=0, file.close(), filen=NULL; 	/* DONE COMPILING */
+		ipc=cpc+1, compile=0, file.close(), filen=NULL; /* DONE COMPILING */
 		emit((int (*)())BYE_);							/* RUN PROGRAM */
 		DRIVER;  										/* MOVE PROGRAM FORWARD */				
 		//Handle Errors

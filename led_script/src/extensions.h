@@ -114,9 +114,11 @@ int ABS_()
 //Or do we asume the numbers are limited to 2 bytes? (0..65535)
 int SCALE256_() 
 { 
+    Serial.println("S1");
     int val = *sp--;  //Pull value from Stack
+    Serial.println("S2");
     val = 2*val; //Multiply by 2
-    *sp=val; //Push 88 to the stack
+    *sp=val; //Push back to the stack
 }
 
 int LIMIT256_() 

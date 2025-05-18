@@ -276,6 +276,7 @@ int runBasic(int argc, char **argv)
     if (argc == 1)
     {
         Serial.println("RUNNING IN INTERACTIVE MODE");
+        initbasic(1);
         int res = interp(NULL);
         if (res != 0)
         {
@@ -291,6 +292,7 @@ int runBasic(int argc, char **argv)
     {
         Serial.print("RUNNING ");
         Serial.println(argv[1]);
+        initbasic(1);        
         int res = interp(argv[1]);
         if (res != 0)
         {
@@ -352,19 +354,13 @@ void setup()
     blink_leds(CRGB::Red);
 
     Serial.begin(115200);
-    //while (!Serial) 
+    
+    while (!Serial) 
     {
         // wait for serial port to connect. Needed for native USB port only
         // AND you want to block until there's a connection
         // otherwise the shell can quietly drop output.
     }
-
-    for(int ii=0;ii<300;ii++)
-    {
-        delay(30);
-        Serial.print(".");
-    }
-    Serial.println("");
 
     FastLED.addLeds<WS2812B, RGB_DATA_PIN, GRB>(leds, NUM_LEDS);
     blink_leds(CRGB::Blue);
@@ -390,6 +386,24 @@ void setup()
 
 void loop() 
 {
+  static bool startup = true;  
+  if (startup)
+  {
+    startup = false;
+    if (SPIFFS.exists("/startup.bas"))
+    {
+        initbasic(1);
+        int res = interp("/startup.bas");
+        if (res != 0)
+        {
+            Serial.print("Error Exit Code: ");
+            Serial.println(res);
+        }   
+        else 
+            Serial.println("STARTUP DONE");
+    }
+  }
+
   shell.executeIfInput();
 }
 
