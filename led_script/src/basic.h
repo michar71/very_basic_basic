@@ -393,7 +393,7 @@ int interp(char* filen)
 				while (len == 0);
 				lbuf[len] = 0;
 				lp = lbuf;
-				if (lbuf[0] == 28)  //Break character
+				if (lbuf[0] == 0x1A)  //Break character
 					break;
 			}
 			lnum++, ungot=0, stmt();	/* PARSE AND COMPILE */

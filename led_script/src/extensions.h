@@ -203,7 +203,7 @@ int LIMIT256_()
         val = 0; 
     if (val>255)
         val = 255; 
-    *sp=val; //Push 88 to the stack
+    *sp=val; //Push result to the stack
     STEP;
 }
 
@@ -239,7 +239,7 @@ int SETARRAY_()
     //Set Array
     int i;
     for (i=start; i<=end; i++)
-        arr[i] = val; //Push back to to the stack
+        arr[i] = val; //Set value in array
 
 
     //Hmm... How do we deal with no return??? Just return a dummy value?
@@ -313,12 +313,9 @@ int funhook_(char *msg, int n)
 }
 
 //-------------------------------------
-
 void registerhook() 
 {
     kwdhook=kwdhook_;
     funhook=funhook_;
 }
-
-
 #endif

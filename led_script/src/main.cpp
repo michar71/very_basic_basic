@@ -199,7 +199,7 @@ int loadFile(int argc, char **argv)
         char line[256];
         char inchar;
         bool isDone = false;
-        Serial.print("Ready for file ");
+        Serial.print("Ready for file. Press CTRL+Z to end transmission and save file");
         Serial.println(argv[1]);
         //Flush serial buffer
         Serial.flush();
@@ -218,7 +218,7 @@ int loadFile(int argc, char **argv)
             {
                 inchar = Serial.read();
                 //Check if its a break character
-                if (inchar == 28) 
+                if (inchar == 0x1A) 
                 {
                     //Break loop 
                     break;
@@ -262,7 +262,7 @@ int loadFile(int argc, char **argv)
         file.close();
 
         Serial.print(linecount);
-        Serial.println(" Lines writtren to file");
+        Serial.println(" Lines written to file");
         return 0;
     }
 }
@@ -271,7 +271,7 @@ int runBasic(int argc, char **argv)
 {
     if (argc == 1)
     {
-        Serial.println("RUNNING IN INTERACTIVE MODE");
+        Serial.println("RUNNING IN INTERACTIVE MODE. Press CTRL+Z, Return to exit.");
         initbasic(1);
         int res = interp(NULL);
         if (res != 0)
