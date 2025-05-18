@@ -65,6 +65,7 @@ int UNPACKCOLB(int RGB)
 LED Specific:
 SETLED(array RGB)   -> Upload Array to LED Strip. LED Length is defined by array size. Will init LED Strip on first call. (Usually set all to black...)
 SETLEDRGB(array R, array G, array B)
+SETLEDCLEAR()       -> Set all LED's to black
 COLORLED(int start, int end, int COL) -> Set the whole array to one solid color
 int GETMAXLED()
 */
@@ -149,10 +150,12 @@ int SETLEDRGB_()
     //Pull 3 arrays from stack
     //Pull the values off the stack
     Val *s = sp; //Stack pointer
-    Val *arr_r = (Val*)*s++;  
+    Val *arr_b = (Val*)*s++;  
     Val *arr_g = (Val*)*s++;  
-    Val *arr_b = (Val*)*s++;      
+    Val *arr_r = (Val*)*s++;      
     sp--; //Rewind stack pointer    
+    sp--;
+    sp--;
 
     //Validate arrays
     if ((arr_r == 0) || (arr_g == 0) || (arr_b == 0))
@@ -214,6 +217,9 @@ int SETARRAY_()
     Val *arr = (Val*)*s++;  
 
     sp--; //Rewind stack pointer
+    sp--;
+    sp--;
+    sp--;
 
     if (arr == 0)
     {

@@ -335,10 +335,6 @@ void color_leds(CRGB col)
     FastLED.show();
 }
 
-void clear_leds(CRGB* arr)
-{
-    fill_solid(arr,NUM_LEDS,CRGB::Black);
-}
 /*
 Main Code
 */
@@ -352,7 +348,6 @@ void setup()
     pinMode(BUTTON_PIN,INPUT_PULLUP);
 
     FastLED.addLeds<WS2812B, RGB_DATA_PIN, RGB>(leds, NUM_LEDS);
-    clear_leds(leds);
     blink_leds(CRGB::Red);
 
     Serial.begin(115200);
@@ -364,7 +359,6 @@ void setup()
         // otherwise the shell can quietly drop output.
     }
 
-    FastLED.addLeds<WS2812B, RGB_DATA_PIN, GRB>(leds, NUM_LEDS);
     blink_leds(CRGB::Blue);
 
     //example
