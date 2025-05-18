@@ -1,6 +1,8 @@
 #ifndef extensions_h
 #define extensions_h
 
+#include "main.h"
+
 /*
 Functions:
 =========
@@ -17,7 +19,7 @@ int ABS(int)
 System:
 
 int TIMESTAMP(mS)
-WAIT (innt ms)
+WAIT (int ms)
 LOCKTIME()        -> Stores the current time 
 WAITIME(ms)       -> x mS minus the time that has passed since LOCKTIME was called. This allows to have consistent timing even if scripts take some time to execute for each frame.
 uint8 READANALOG(int ch)
@@ -77,6 +79,9 @@ int GETMAXLED()
 #define SCALE256_T "SCALE256"
 
 #define ABS_T "ABS"
+#define WAIT_T "WAIT"
+#define GETMAXLED_T "GETMAXLED"
+#define SETLEDRGB_T "SETLEDRGB"
 
 #define SETARRAY_T "SETARRAY"
 #define SHIFTARRAY_T "SHIFTARRAY"
@@ -87,7 +92,8 @@ int GETMAXLED()
 int PRINTS_() 
 { 
     //Output the string on the Run-time Stack and return for next command.
-	puts((char*)*sp++); STEP; 
+	puts((char*)*sp++); 
+    STEP; 
 }
 
 
@@ -108,6 +114,71 @@ int ABS_()
     if (val<0) 
         val = -val; //Make it positive
     *sp=val; //Push back to to the stack
+    STEP;
+}
+
+int WAIT_() 
+{ 
+    int val = *sp--;  //Pull value from Stack
+    if (val<0)
+        val = 0;
+
+    long start = millis();
+    do
+    {
+        yield();    
+    } 
+    while (millis() < (start + val));
+     
+    *sp=0; //Push back to to the stack
+    STEP;
+}
+
+int GETMAXLED_()
+{
+    int val = *sp--;  //Pull value from Stack (We don't need it but functions need to pass at least one param?)
+    if (val<0)
+        val = 0;
+    
+    *sp=NUM_LEDS; //Push back to to the stack
+    STEP;
+}
+
+int SETLEDRGB_()
+{
+    //Pull 3 arrays from stack
+    //Pull the values off the stack
+    Val *s = sp; //Stack pointer
+    Val *arr_r = (Val*)*s++;  
+    Val *arr_g = (Val*)*s++;  
+    Val *arr_b = (Val*)*s++;      
+    sp--; //Rewind stack pointer    
+
+    //Validate arrays
+    if ((arr_r == 0) || (arr_g == 0) || (arr_b == 0))
+    {
+        bad("SETLEDRGB: BAD ARRAY POINTER");
+        return 0;
+    } 
+
+    if ((arr_r[0] != NUM_LEDS) || (arr_g[0] != NUM_LEDS) || (arr_b[0] != NUM_LEDS))
+    {
+        bad("SETLEDRGB: WRONG ARRAY LENGTH");
+        return 0;
+    } 
+    //copy arrays to LED array
+    for (int ii=0;ii<NUM_LEDS;ii++)
+    {
+        leds[ii].r = (uint8_t)arr_r[ii+1];
+        leds[ii].g = (uint8_t)arr_g[ii+1];
+        leds[ii].b = (uint8_t)arr_b[ii+1];                
+    }
+    //Show LED 
+    FastLED.show();
+
+    //Hmm... How do we deal with no return??? Just return a dummy value?
+    *sp = 0; //Push 0 to the stack
+    STEP;    
 }
 
 //Hmm.. Do we scale from the whole 4 bit integer? Thats a huge number space.... 
@@ -119,6 +190,7 @@ int SCALE256_()
     Serial.println("S2");
     val = 2*val; //Multiply by 2
     *sp=val; //Push back to the stack
+    STEP;
 }
 
 int LIMIT256_() 
@@ -129,9 +201,10 @@ int LIMIT256_()
     if (val>255)
         val = 255; 
     *sp=val; //Push 88 to the stack
+    STEP;
 }
 
-int SETARRAY()
+int SETARRAY_()
 { 
     //Pull the values off the stack
     Val *s = sp; //Stack pointer
@@ -165,6 +238,7 @@ int SETARRAY()
 
     //Hmm... How do we deal with no return??? Just return a dummy value?
     *sp = 0; //Push 0 to the stack
+    STEP;
 }
 
 
@@ -196,11 +270,38 @@ int funhook_(char *msg, int n)
     {
         if (n!=4) 
         {
-            bad("SET_A: 4 ARGUMENTS REQUIRED");
+            bad("SETARRAY: 4 ARGUMENTS REQUIRED");
             return 0;
         }        
-		emit(SETARRAY);STEP;
-    }       
+		emit(SETARRAY_);STEP;
+    }     
+	if (!strcmp(msg,GETMAXLED_T))
+    {
+        if (n!=1) 
+        {
+            bad("GETMAXLED: 1 ARGUMENT REQUIRED");
+            return 0;
+        }        
+		emit(GETMAXLED_);STEP;
+    }  
+	if (!strcmp(msg,WAIT_T))
+    {
+        if (n!=1) 
+        {
+            bad("WAIT: 1 ARGUMENT REQUIRED");
+            return 0;
+        }        
+		emit(WAIT_);STEP;
+    }  
+	if (!strcmp(msg,SETLEDRGB_T))
+    {
+        if (n!=3) 
+        {
+            bad("SETLEDRGB: 3 ARGUMENTS REQUIRED");
+            return 0;
+        }        
+		emit(SETLEDRGB_);STEP;
+    }                
     else	
 		return 0;
 }

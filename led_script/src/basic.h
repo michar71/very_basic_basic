@@ -388,7 +388,9 @@ int interp(char* filen)
 			}
 			else
 			{
-				len  = Serial.readBytesUntil('\n', lp=lbuf,sizeof lbuf);
+				do
+					len  = Serial.readBytesUntil('\n', lp=lbuf,sizeof lbuf);
+				while (len == 0);
 				lbuf[len] = 0;
 				lp = lbuf;
 				if (lbuf[0] == 28)  //Break character

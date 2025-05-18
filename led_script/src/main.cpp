@@ -1,17 +1,12 @@
 #include <Arduino.h>
 #include "FS.h"
 #include "SPIFFS.h"
-#include "FastLED.h"
 #include <SimpleSerialShell.h>
 #include "basic.h"
-
-#define BUTTON_PIN 0
-#define RGB_DATA_PIN  14
-
-#define NUM_LEDS 64
+#include "main.h"
 
 
-CRGB leds[NUM_LEDS];
+
 
 /*
 Shell Commands
@@ -175,6 +170,7 @@ int listFile(int argc, char **argv)
     }
 
     readFile(SPIFFS,argv[1]); 
+    Serial.printf("");
     return 0;
 }
 
@@ -336,8 +332,13 @@ void color_leds(CRGB col)
     {
         leds[ii] = col;    
     }
+    FastLED.show();
 }
 
+void clear_leds(CRGB* arr)
+{
+    fill_solid(arr,NUM_LEDS,CRGB::Black);
+}
 /*
 Main Code
 */
@@ -351,6 +352,7 @@ void setup()
     pinMode(BUTTON_PIN,INPUT_PULLUP);
 
     FastLED.addLeds<WS2812B, RGB_DATA_PIN, RGB>(leds, NUM_LEDS);
+    clear_leds(leds);
     blink_leds(CRGB::Red);
 
     Serial.begin(115200);
@@ -402,6 +404,8 @@ void loop()
         else 
             Serial.println("STARTUP DONE");
     }
+    else
+        Serial.println("No startup.bas found, proceeding to shell");
   }
 
   shell.executeIfInput();
