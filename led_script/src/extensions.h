@@ -90,6 +90,18 @@ int GETMAXLED()
 #define SCALEARRAY_T "SCALEARRAY"
 #define SCALELIMITARRAY_T "SCALELIMITARRAY"
 
+void dumpStack(void)
+{
+    Serial.print("SP:");
+    Serial.println(sp-stk);
+    for (int ii=STKSZ;ii>=0;ii--)
+    {
+        Serial.print(ii);
+        Serial.print(":");
+        Serial.println(stk[ii]);
+    }
+}
+
 int PRINTS_() 
 { 
     //Output the string on the Run-time Stack and return for next command.
@@ -111,7 +123,7 @@ int kwdhook_(char *msg)
 
 int ABS_() 
 { 
-    int val = *sp--;  //Pull value from Stack
+    int val = *sp;  //Pull value from Stack and rewind stack
     if (val<0) 
         val = -val; //Make it positive
     *sp=val; //Push back to to the stack
@@ -120,7 +132,7 @@ int ABS_()
 
 int WAIT_() 
 { 
-    int val = *sp--;  //Pull value from Stack
+    int val = *sp;  //Pull value from Stack and rewind stack
     if (val<0)
         val = 0;
 
@@ -137,7 +149,7 @@ int WAIT_()
 
 int GETMAXLED_()
 {
-    int val = *sp--;  //Pull value from Stack (We don't need it but functions need to pass at least one param?)
+    int val = *sp;  //Pull value from Stack (We don't need it but functions need to pass at least one param?)
     if (val<0)
         val = 0;
     
@@ -148,14 +160,9 @@ int GETMAXLED_()
 int SETLEDRGB_()
 {
     //Pull 3 arrays from stack
-    //Pull the values off the stack
-    Val *s = sp; //Stack pointer
-    Val *arr_b = (Val*)*s++;  
-    Val *arr_g = (Val*)*s++;  
-    Val *arr_r = (Val*)*s++;      
-    sp--; //Rewind stack pointer    
-    sp--;
-    sp--;
+    Val *arr_b = (Val*)*sp++;  
+    Val *arr_g = (Val*)*sp++;  
+    Val *arr_r = (Val*)*sp;      
 
     //Validate arrays
     if ((arr_r == 0) || (arr_g == 0) || (arr_b == 0))
@@ -188,9 +195,7 @@ int SETLEDRGB_()
 //Or do we asume the numbers are limited to 2 bytes? (0..65535)
 int SCALE256_() 
 { 
-    Serial.println("S1");
-    int val = *sp--;  //Pull value from Stack
-    Serial.println("S2");
+    int val = *sp;  //Pull value from Stack
     val = 2*val; //Multiply by 2
     *sp=val; //Push back to the stack
     STEP;
@@ -198,7 +203,7 @@ int SCALE256_()
 
 int LIMIT256_() 
 { 
-    int val = *sp--;  //Pull value from Stack
+    int val = *sp;  //Pull value from Stack
     if (val<0)        //Limit it to 9..255
         val = 0; 
     if (val>255)
@@ -210,16 +215,10 @@ int LIMIT256_()
 int SETARRAY_()
 { 
     //Pull the values off the stack
-    Val *s = sp; //Stack pointer
-    int val = (int)*s++;
-    int end = (int)*s++;
-    int start = (int)*s++;
-    Val *arr = (Val*)*s++;  
-
-    sp--; //Rewind stack pointer
-    sp--;
-    sp--;
-    sp--;
+    int val = (int)*sp++;
+    int end = (int)*sp++;
+    int start = (int)*sp++;
+    Val *arr = (Val*)*sp;  
 
     if (arr == 0)
     {

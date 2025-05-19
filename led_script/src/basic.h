@@ -188,8 +188,6 @@ BINN(addition,ADD,SUBS,factor)
 BINN(relation,EQ,GE,addition)
 BINN(expr,AND,OR,relation)
 
-
-
 #define LIST(BODY) if (!want(0)) do {BODY;} while (want(COMMA))
 
 /* BASIC EXPRESSION */
@@ -217,11 +215,11 @@ void base()
 					emit(RV_);
 				}
 			}
-		else		inst(LOAD_, var);
-	} else if (want(LP))	expr(), need(RP);
+		else inst(LOAD_, var);
+	} else if (want(LP)) expr(), need(RP);
 	else if (want(UBOUND))	need(LP),need(NAME),need(RP),inst(UBOUND_,tokv);
-	else			bad("BAD EXPRESSION");
-	if (neg)		emit(SUBS_);	/* NEGATE */
+	else bad("BAD EXPRESSION");
+	if (neg) emit(SUBS_);	/* NEGATE */
 }
 
 /* STATEMENT */
