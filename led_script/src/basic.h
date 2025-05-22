@@ -407,6 +407,9 @@ int interp(char* filen)
 			//Handle Errors
 			if ((error=check_error(filen)) > -1) return error; 
 		}
+		Serial.print("Compiled Size:");
+		Serial.print((uint)(int)prg-(int)opc);
+		Serial.println(" Steps");
 		ipc=cpc+1, compile=0, file.close(), filen=NULL; /* DONE COMPILING */
 		emit((int (*)())BYE_);							/* RUN PROGRAM */
 		DRIVER;  										/* MOVE PROGRAM FORWARD */				

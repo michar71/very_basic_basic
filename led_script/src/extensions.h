@@ -2,6 +2,7 @@
 #define extensions_h
 
 #include "main.h"
+#include <math.h>
 
 /*
 Functions:
@@ -12,21 +13,24 @@ LOADMAP(0...x)  (GAMMA,LOG, SIN,PULSE,FIRE_R,FIRE_G,FIRE_B,TEMPERATURE_R,TEMPERA
 SETMAP256(array)
 int MAP(int val)
 uint8 SCALE256(int val)    
-uint8 LIMIT256(int val)
-int RANDOM(int min, int max)
-int ABS(int)
+DONE uint8 LIMIT256(int val)
+DONE int LIMIT(int val, int min, int max)
+DONE int ABS(int)
+DONE int SIN256(int)
+DONE int SCALE(int val, int valmin, int valmax, int rmin, int rmax)
 
 System:
 
-int TIMESTAMP(mS)
-WAIT (int ms)
+DONE int TIMESTAMP(int divider)
+DONE WAIT (int ms)
 LOCKTIME()        -> Stores the current time 
 WAITIME(ms)       -> x mS minus the time that has passed since LOCKTIME was called. This allows to have consistent timing even if scripts take some time to execute for each frame.
+DONE int RANDOM(int min, int max)
 uint8 READANALOG(int ch)
 uint8 READPIN(int gpio)
 SETPIN(int gpio)
 CLEARPIN(int gpio)
-WAITEVENT(int event, int cond)  -> 1=Wait for a GPIO to Toggle to 0 or 1,Wait for an analog Channel to go above or below a threshold, wait for timer to reach a specific value in mS or Sec 
+WAITEVENT(int event, int cond, int val)  -> Wait for "event" (Analog, Digital, Timer) to (cross low/high, cross high/low) of value
 
 Color Space ->RGBtoHSB and Back (Requires multiple parameters or arrays as parameters? For all these color functions we just ignore values in arrays larger then 3 and set it to zero if less then 3.... ):
 
@@ -42,16 +46,16 @@ RGBTOHSBARRAY(array, array)
 
 
 LED Specific:
-SETLED(array R, array G, array B)   -> Upload Array to LED Strip. LED Length is defined by array size. Will init LED Strip on first call. (Usually set all to black...)
+DONE SETLED(array R, array G, array B)   -> Upload Array to LED Strip. LED Length is defined by array size. Will init LED Strip on first call. (Usually set all to black...)
 CLEARLED(count)  -> Saves us from having to define an array, set the whole array to 0 and then having to send the array....
 COLORLED(int start, int end, array[3]) -> Set the whole array to one solid color
 
 Array:
-SHIFTARRAY(array A, int amount) -> Shift the values of an array to left or right by a specific amount
-ROTATEARRAY(array A, int amount)
-SETARRAY(array A, int start,int end, int value) -> Set the value of an array at a specific index
-SCALE_A(array A, int perc_scale) -> Scale the values of an array by a percentage
-SCALELIMITARRAY(array A, int perc) -> Scale the values of an array by a percentage but kimit it to max 255, min 0
+SHIFTARRAY(array A, int amount, int val) -> Shift the values of an array to left or right by a specific amount
+DONE ROTATEARRAY(array A, int amount)
+DONE SETARRAY(array A, int start,int end, int value) -> Set the value of an array at a specific index
+SCALEARRAY(array A, int perc_scale) -> Scale the values of an array by a percentage
+DONE SCALELIMITARRAY(array A, int perc,int min, int max) -> Scale the values of an array by a percentage but kimit it to max 255, min 0
 
 //Pack/Unpack Colors:
 //For efficiency we allow to store RGB volors in variables and arrays as RGBA of 1 byte each
@@ -64,23 +68,48 @@ int UNPACKCOLB(int RGB)
 
 LED Specific:
 SETLED(array RGB)   -> Upload Array to LED Strip. LED Length is defined by array size. Will init LED Strip on first call. (Usually set all to black...)
-SETLEDRGB(array R, array G, array B)
+DONE SETLEDRGB(array R, array G, array B)
 SETLEDCLEAR()       -> Set all LED's to black
 COLORLED(int start, int end, int COL) -> Set the whole array to one solid color
-int GETMAXLED()
+DONE int GETMAXLED()
 */
 
+
+
+const uint8_t  gamma8[] = {
+0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1,
+1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2,
+2, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5,
+5, 6, 6, 6, 6, 7, 7, 7, 7, 8, 8, 8, 9, 9, 9, 10,
+10, 10, 11, 11, 11, 12, 12, 13, 13, 13, 14, 14, 15, 15, 16, 16,
+17, 17, 18, 18, 19, 19, 20, 20, 21, 21, 22, 22, 23, 24, 24, 25,
+25, 26, 27, 27, 28, 29, 29, 30, 31, 32, 32, 33, 34, 35, 35, 36,
+37, 38, 39, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 50,
+51, 52, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 66, 67, 68,
+69, 70, 72, 73, 74, 75, 77, 78, 79, 81, 82, 83, 85, 86, 87, 89,
+90, 92, 93, 95, 96, 98, 99, 101, 102, 104, 105, 107, 109, 110, 112, 114,
+115, 117, 119, 120, 122, 124, 126, 127, 129, 131, 133, 135, 137, 138, 140, 142,
+144, 146, 148, 150, 152, 154, 156, 158, 160, 162, 164, 167, 169, 171, 173, 175,
+177, 180, 182, 184, 186, 189, 191, 193, 196, 198, 200, 203, 205, 208, 210, 213,
+215, 218, 220, 223, 225, 228, 231, 233, 236, 239, 241, 244, 247, 249, 252, 255
+};
 
 //------------------------------------
 //USER DEFINED FUNCTIONS
 //------------------------------------
 #define PRINTS_T "PRINTS"
 
-#define LIKMIT256_T "LIMIT256"
-#define SCALE256_T "SCALE256"
+#define LIMIT256_T "LIMIT256"
+#define LIMIT_T "LIMIT"
+#define SCALE_T "SCALE"
+#define SIN256_T "SIN256"
+
 
 #define ABS_T "ABS"
 #define WAIT_T "WAIT"
+#define RANDOM_T "RANDOM"
+#define TIMESTAMP_T "TIMESTAMP"
 #define GETMAXLED_T "GETMAXLED"
 #define SETLEDRGB_T "SETLEDRGB"
 
@@ -179,9 +208,9 @@ int SETLEDRGB_()
     //copy arrays to LED array
     for (int ii=0;ii<NUM_LEDS;ii++)
     {
-        leds[ii].r = (uint8_t)arr_r[ii+1];
-        leds[ii].g = (uint8_t)arr_g[ii+1];
-        leds[ii].b = (uint8_t)arr_b[ii+1];                
+        leds[ii].r = gamma8[(uint8_t)arr_r[ii+1]];
+        leds[ii].g = gamma8[(uint8_t)arr_g[ii+1]];
+        leds[ii].b = gamma8[(uint8_t)arr_b[ii+1]];                
     }
     //Show LED 
     FastLED.show();
@@ -193,10 +222,14 @@ int SETLEDRGB_()
 
 //Hmm.. Do we scale from the whole 4 bit integer? Thats a huge number space.... 
 //Or do we asume the numbers are limited to 2 bytes? (0..65535)
-int SCALE256_() 
+int SCALE_() 
 { 
+    int rmax = (int)*sp++;    
+    int rmin = (int)*sp++;
+    int valmax = (int)*sp++;
+    int valmin = (int)*sp++;    
     int val = *sp;  //Pull value from Stack
-    val = 2*val; //Multiply by 2
+    int res = map(val,valmin, valmax,rmin,rmax);
     *sp=val; //Push back to the stack
     STEP;
 }
@@ -209,6 +242,56 @@ int LIMIT256_()
     if (val>255)
         val = 255; 
     *sp=val; //Push result to the stack
+    STEP;
+}
+
+int SIN256_()
+{
+    int val = *sp;  //Pull value from Stack
+    double sinval = sin(((double)val/255.0)* 2 * PI);
+    double scaledval = ((sinval + 1) / 2) * 255;
+    *sp=(int)scaledval; //Push result to the stack
+    STEP; 
+}
+
+int ROTATEARRAY_()
+{
+    //Pull the values off the stack
+    int amount = (int)*sp++;
+    Val *arr = (Val*)*sp;  
+
+    if (arr == 0)
+    {
+        bad("SETARRAY: BAD ARRAY POINTER");
+        return 0;
+    }
+
+    int size = (int)arr[0];
+
+    //We do this in an annoyingly slow way by just repeating it n times
+    //There are faster ways to do this but that requires more buffer memeory
+    //or memeory allocation. So we keep it simple for the moment.
+    for (int ii=0;ii<abs(amount);ii++)
+    {
+        int tmp=0;
+        if (amount>0)
+        {
+            tmp = arr[size];
+            for (int jj=size;jj>1;jj--)
+                arr[jj] = arr[jj-1];
+            arr[1] = tmp;    
+        }
+        else
+        {
+            tmp = arr[1];
+            for (int jj=1;jj<size-1;jj++)
+                arr[jj] = arr[jj+1];
+            arr[size] = tmp;    
+        }
+    }
+
+    //Hmm... How do we deal with no return??? Just return a dummy value?
+    *sp = 0; //Push 0 to the stack
     STEP;
 }
 
@@ -246,22 +329,99 @@ int SETARRAY_()
     STEP;
 }
 
+int SCALELIMITARRAY_()
+{
+   //Pull the values off the stack
+    int max = (int)*sp++;
+    int min = (int)*sp++;
+    int perc = (int)*sp++;
+    Val *arr = (Val*)*sp;  
 
+    if (arr == 0)
+    {
+        bad("SETARRAY: BAD ARRAY POINTER");
+        return 0;
+    }
+
+    int size = (int)arr[0];
+
+    //Set Array
+    int i;
+    for (i=1; i<=size; i++)
+    {
+        arr[i] = (int)((float)arr[i]*((float)perc/100.0)); //We cast to int without rounding so stuff converges to 0
+        if (arr[i] < min)
+            arr[i] = min;
+        if (arr[i] > max)
+            arr[i] = max;    
+    }
+    //Hmm... How do we deal with no return??? Just return a dummy value?
+    *sp = 0; //Push 0 to the stack
+    STEP;
+}
+
+int RANDOM_()
+{
+    int max = (int)*sp++;
+    int min = (int)*sp;  //Pull value from Stack and rewind stack
+    int rnd = (int)random(min,max);
+    *sp=rnd; //Push back to to the stack
+    STEP;
+}
+
+int LIMIT_()
+{
+    int max = (int)*sp++;
+    int min = (int)*sp++;
+    int val = (int)*sp;  //Pull value from Stack and rewind stack
+    if (val>max)
+        val = max;
+    else if (val < min) 
+        val = min;   
+    *sp=val; //Push back to to the stack
+    STEP;
+}
+
+int TIMESTAMP_()
+{
+    int div = (int)*sp;
+    int ts = (int)(millis()/div);
+    *sp=ts; //Push back to to the stack
+    STEP;
+}
 
 //Hmmm... so we get the name of the function and the number of arguments.
 //Validate here if the number of arguments is correct and then push the function to the progam buffer.
 //In the function we pull the arguments off the dstasck and put the result back on the stack.
 int funhook_(char *msg, int n) 
 {   
-	if (!strcmp(msg,SCALE256_T))
+	if (!strcmp(msg,LIMIT256_T))
     {
         if (n!=1) 
         {
-            bad("SCALE256: 1 ARGUMENT REQUIRED");
+            bad("LIMIT256: 1 ARGUMENT REQUIRED");
             return 0;
         }
-        emit(SCALE256_);STEP;
+        emit(LIMIT256_);STEP;
     }
+	if (!strcmp(msg,SCALE_T))
+    {
+        if (n!=5) 
+        {
+            bad("SCALE: 5 ARGUMENTS REQUIRED");
+            return 0;
+        }
+        emit(SCALE_);STEP;
+    }    
+	if (!strcmp(msg,LIMIT_T))
+    {
+        if (n!=3) 
+        {
+            bad("LIMIT: 3 ARGUMENTS REQUIRED");
+            return 0;
+        }
+        emit(LIMIT_);STEP;
+    }    
 	if (!strcmp(msg,ABS_T))
     {
         if (n!=1) 
@@ -271,6 +431,15 @@ int funhook_(char *msg, int n)
         }
         emit(ABS_);STEP;
     }    
+	if (!strcmp(msg,SIN256_T))
+    {
+        if (n!=1) 
+        {
+            bad("ABS: 1 ARGUMENT REQUIRED");
+            return 0;
+        }
+        emit(SIN256_);STEP;
+    }        
 	if (!strcmp(msg,SETARRAY_T))
     {
         if (n!=4) 
@@ -280,6 +449,15 @@ int funhook_(char *msg, int n)
         }        
 		emit(SETARRAY_);STEP;
     }     
+	if (!strcmp(msg,ROTATEARRAY_T))
+    {
+        if (n!=2) 
+        {
+            bad("ROTATEARRAY: 2 ARGUMENTS REQUIRED");
+            return 0;
+        }        
+		emit(ROTATEARRAY_);STEP;
+    }         
 	if (!strcmp(msg,GETMAXLED_T))
     {
         if (n!=1) 
@@ -306,7 +484,34 @@ int funhook_(char *msg, int n)
             return 0;
         }        
 		emit(SETLEDRGB_);STEP;
-    }                
+    }    
+ 	if (!strcmp(msg,TIMESTAMP_T))
+    {
+        if (n!=1) 
+        {
+            bad("TIMESTAMP: 1 ARGUMENT REQUIRED");
+            return 0;
+        }        
+		emit(TIMESTAMP_);STEP;
+    }      
+ 	if (!strcmp(msg,RANDOM_T))
+    {
+        if (n!=2) 
+        {
+            bad("RANDOM: 2 ARGUMENTS REQUIRED");
+            return 0;
+        }        
+		emit(RANDOM_);STEP;
+    }      
+ 	if (!strcmp(msg,SCALELIMITARRAY_T))
+    {
+        if (n!=4) 
+        {
+            bad("TIMESTAMP: 4 ARGUMENTS REQUIRED");
+            return 0;
+        }        
+		emit(SCALELIMITARRAY_);STEP;
+    }                    
     else	
 		return 0;
 }
