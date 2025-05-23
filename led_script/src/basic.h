@@ -62,7 +62,7 @@ char stab[STRSZ], *stabp;   					/* STRING TABLE */
 
 int	(*kwdhook)(char *kwd);						/* KEYWORD HOOK */
 int	(*funhook)(char *kwd, int n);				/* FUNCTION CALL HOOK */
-void initbasic(int comp) { pc=prg; sp=stk+(int)STKSZ; csp=cstk+(int)STKSZ; stabp=stab; compile=comp; registerhook(); }
+void initbasic(int comp) { pc=prg; sp=stk+(int)STKSZ; csp=cstk+(int)STKSZ; stabp=stab; compile=comp; cpc = 0; registerhook(); }
 void bad(char *msg) { Serial.printf("ERROR %d: %s\n", lnum, msg); globalerror = 1; }
 void err(char *msg) { Serial.printf("ERROR %d: %s\n",lmap[pc-prg-1],msg); globalerror = 2; }
 
@@ -410,8 +410,6 @@ int interp(char* filen)
 		Serial.print("Compiled Size:");
 		Serial.print(cpc * 4);
 		Serial.println(" Bytes");
-		//Serial.print((uint)(int)prg-(int)opc);
-		//Serial.println(" Steps");
 		ipc=cpc+1, compile=0, file.close(), filen=NULL; /* DONE COMPILING */
 		emit((int (*)())BYE_);							/* RUN PROGRAM */
 		DRIVER;  										/* MOVE PROGRAM FORWARD */				
