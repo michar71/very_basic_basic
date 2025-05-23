@@ -196,13 +196,13 @@ int SETLEDRGB_()
     //Validate arrays
     if ((arr_r == 0) || (arr_g == 0) || (arr_b == 0))
     {
-        bad("SETLEDRGB: BAD ARRAY POINTER");
+        bad((char*)"SETLEDRGB: BAD ARRAY POINTER");
         return 0;
     } 
 
     if ((arr_r[0] != NUM_LEDS) || (arr_g[0] != NUM_LEDS) || (arr_b[0] != NUM_LEDS))
     {
-        bad("SETLEDRGB: WRONG ARRAY LENGTH");
+        bad((char*)"SETLEDRGB: WRONG ARRAY LENGTH");
         return 0;
     } 
     //copy arrays to LED array
@@ -262,7 +262,7 @@ int ROTATEARRAY_()
 
     if (arr == 0)
     {
-        bad("SETARRAY: BAD ARRAY POINTER");
+        bad((char*)"SETARRAY: BAD ARRAY POINTER");
         return 0;
     }
 
@@ -305,7 +305,7 @@ int SETARRAY_()
 
     if (arr == 0)
     {
-        bad("SETARRAY: BAD ARRAY POINTER");
+        bad((char*)"SETARRAY: BAD ARRAY POINTER");
         return 0;
     }
 
@@ -314,7 +314,7 @@ int SETARRAY_()
     //Check if the array indices are valid
     if (start<1 || end<1 || start>end || end>size)
     {
-        bad("SETARRAY: INDEX OUT OF BOUNDS");
+        bad((char*)"SETARRAY: INDEX OUT OF BOUNDS");
         return 0;
     }
 
@@ -339,7 +339,7 @@ int SCALELIMITARRAY_()
 
     if (arr == 0)
     {
-        bad("SETARRAY: BAD ARRAY POINTER");
+        bad((char*)"SETARRAY: BAD ARRAY POINTER");
         return 0;
     }
 
@@ -399,7 +399,7 @@ int funhook_(char *msg, int n)
     {
         if (n!=1) 
         {
-            bad("LIMIT256: 1 ARGUMENT REQUIRED");
+            bad((char*)"LIMIT256: 1 ARGUMENT REQUIRED");
             return 0;
         }
         emit(LIMIT256_);STEP;
@@ -408,7 +408,7 @@ int funhook_(char *msg, int n)
     {
         if (n!=5) 
         {
-            bad("SCALE: 5 ARGUMENTS REQUIRED");
+            bad((char*)"SCALE: 5 ARGUMENTS REQUIRED");
             return 0;
         }
         emit(SCALE_);STEP;
@@ -417,7 +417,7 @@ int funhook_(char *msg, int n)
     {
         if (n!=3) 
         {
-            bad("LIMIT: 3 ARGUMENTS REQUIRED");
+            bad((char*)"LIMIT: 3 ARGUMENTS REQUIRED");
             return 0;
         }
         emit(LIMIT_);STEP;
@@ -426,7 +426,7 @@ int funhook_(char *msg, int n)
     {
         if (n!=1) 
         {
-            bad("ABS: 1 ARGUMENT REQUIRED");
+            bad((char*)"ABS: 1 ARGUMENT REQUIRED");
             return 0;
         }
         emit(ABS_);STEP;
@@ -435,7 +435,7 @@ int funhook_(char *msg, int n)
     {
         if (n!=1) 
         {
-            bad("ABS: 1 ARGUMENT REQUIRED");
+            bad((char*)"ABS: 1 ARGUMENT REQUIRED");
             return 0;
         }
         emit(SIN256_);STEP;
@@ -444,7 +444,7 @@ int funhook_(char *msg, int n)
     {
         if (n!=4) 
         {
-            bad("SETARRAY: 4 ARGUMENTS REQUIRED");
+            bad((char*)"SETARRAY: 4 ARGUMENTS REQUIRED");
             return 0;
         }        
 		emit(SETARRAY_);STEP;
@@ -453,7 +453,7 @@ int funhook_(char *msg, int n)
     {
         if (n!=2) 
         {
-            bad("ROTATEARRAY: 2 ARGUMENTS REQUIRED");
+            bad((char*)"ROTATEARRAY: 2 ARGUMENTS REQUIRED");
             return 0;
         }        
 		emit(ROTATEARRAY_);STEP;
@@ -462,7 +462,7 @@ int funhook_(char *msg, int n)
     {
         if (n!=1) 
         {
-            bad("GETMAXLED: 1 ARGUMENT REQUIRED");
+            bad((char*)"GETMAXLED: 1 ARGUMENT REQUIRED");
             return 0;
         }        
 		emit(GETMAXLED_);STEP;
@@ -471,7 +471,7 @@ int funhook_(char *msg, int n)
     {
         if (n!=1) 
         {
-            bad("WAIT: 1 ARGUMENT REQUIRED");
+            bad((char*)"WAIT: 1 ARGUMENT REQUIRED");
             return 0;
         }        
 		emit(WAIT_);STEP;
@@ -480,7 +480,7 @@ int funhook_(char *msg, int n)
     {
         if (n!=3) 
         {
-            bad("SETLEDRGB: 3 ARGUMENTS REQUIRED");
+            bad((char*)"SETLEDRGB: 3 ARGUMENTS REQUIRED");
             return 0;
         }        
 		emit(SETLEDRGB_);STEP;
@@ -489,7 +489,7 @@ int funhook_(char *msg, int n)
     {
         if (n!=1) 
         {
-            bad("TIMESTAMP: 1 ARGUMENT REQUIRED");
+            bad((char*)"TIMESTAMP: 1 ARGUMENT REQUIRED");
             return 0;
         }        
 		emit(TIMESTAMP_);STEP;
@@ -498,7 +498,7 @@ int funhook_(char *msg, int n)
     {
         if (n!=2) 
         {
-            bad("RANDOM: 2 ARGUMENTS REQUIRED");
+            bad((char*)"RANDOM: 2 ARGUMENTS REQUIRED");
             return 0;
         }        
 		emit(RANDOM_);STEP;
@@ -507,7 +507,7 @@ int funhook_(char *msg, int n)
     {
         if (n!=4) 
         {
-            bad("TIMESTAMP: 4 ARGUMENTS REQUIRED");
+            bad((char*)"TIMESTAMP: 4 ARGUMENTS REQUIRED");
             return 0;
         }        
 		emit(SCALELIMITARRAY_);STEP;

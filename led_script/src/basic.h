@@ -35,8 +35,8 @@ typedef int		(*Code)();	/* BYTE-CODE */
 enum {	NAME=1,NUMBER,STRING,LP,RP,COMMA,ADD,SUBS,MUL,DIV,MOD,
 	EQ,LT,GT, NE,LE,GE,AND,OR,FORMAT,SUB,END,RETURN,LOCAL,
 	WHILE,FOR,TO,IF,ELSE,THEN,DIM,UBOUND,BYE,BREAK,RESUME };
-char	*kwd[]={ "AND","OR","FORMAT","SUB","END","RETURN","LOCAL","WHILE",
-	"FOR","TO","IF","ELSE","THEN","DIM","UBOUND","BYE","BREAK","RESUME",0 };
+char	*kwd[]={ (char*)"AND",(char*)"OR",(char*)"FORMAT",(char*)"SUB",(char*)"END",(char*)"RETURN",(char*)"LOCAL",(char*)"WHILE",
+	(char*)"FOR",(char*)"TO",(char*)"IF",(char*)"ELSE",(char*)"THEN",(char*)"DIM",(char*)"UBOUND",(char*)"BYE",(char*)"BREAK",(char*)"RESUME",0 };
 
 char lbuf[256],tokn[SYMSZ],*lp; 				/* LEXER STATE */
 int	lnum,tok,tokv,ungot;						/* LEXER STATE */
@@ -69,7 +69,7 @@ void err(char *msg) { Serial.printf("ERROR %d: %s\n",lmap[pc-prg-1],msg); global
 void freedim() { int i; for (i=0; i<nvar; i++) if (mode[i]==VARMODE_DIM) free((Val*)value[i]); }
 void emit(int opcode()) { lmap[cpc]=lnum; prg[cpc++]=opcode; }
 void inst(int opcode(), Val x) { emit(opcode); emit((Code)x); }
-Val *bound(Val *mem, int n) { if (n<1 || n>*mem) err("BOUNDS"); return mem+n;  }
+Val *bound(Val *mem, int n) { if (n<1 || n>*mem) err((char*)"BOUNDS"); return mem+n;  }
 void BYE_() { freedim();globalerror = 4; }
 void BREAK_() { globalerror = 3; }
 
@@ -88,8 +88,8 @@ int FORMAT_() { char *f; Val n=PCV, *ap=(sp+=n)-1;
 int ADD_() { A+=B; sp++; STEP; };
 int SUBS_() { A-=B; sp++; STEP; };
 int MUL_() { A*=B; sp++; STEP; };
-int DIV_() { if (!B) sp+=2,err("DIVISION BY ZERO"); A/=B; sp++; STEP; };
-int MOD_() { if (!B) sp+=2,err("MODULUS OF ZERO"); A%=B; sp++; STEP; };
+int DIV_() { if (!B) sp+=2,err((char*)"DIVISION BY ZERO"); A/=B; sp++; STEP; };
+int MOD_() { if (!B) sp+=2,err((char*)"MODULUS OF ZERO"); A%=B; sp++; STEP; };
 int EQ_() { A=(A==B)? -1: 0; sp++; STEP; };
 int LT_() { A=(A<B)? -1: 0; sp++; STEP; };
 int GT_() { A=(A>B)? -1: 0; sp++; STEP; };
@@ -141,7 +141,7 @@ int find(char *var)
 /* READ TOKEN */
 int read() 
 {	
-	char *p,*d,**k, *pun="(),+-*/\\=<>", *dub="<><==>";
+	char *p,*d,**k, *pun=(char*)"(),+-*/\\=<>", *dub=(char*)"<><==>";
 	if (ungot) return ungot=0, tok;	/* UNGOT PREVIOUS */
 	while (isspace(*lp)) lp++;	/* SKIP SPACE */
 	if (!*lp || *lp=='#') return tok=0; /* END OF LINE */
@@ -160,7 +160,7 @@ int read()
 		for (p=stabp; *lp && *lp!='"'; ) *stabp++=*lp++;
 		return *stabp++=0, lp++, tokv=p-stab, tok=STRING;
 	} else	{
-		bad("BAD TOKEN");
+		bad((char*)"BAD TOKEN");
 		return -1; 
 	}
 }
@@ -172,7 +172,7 @@ int want(int type)
 
 void need(int type) 
 { 
-	if (!want(type)) bad("SYNTAX ERROR"); 
+	if (!want(type)) bad((char*)"SYNTAX ERROR"); 
 }
 
 
@@ -210,7 +210,7 @@ void base()
 				if (!funhook || !funhook(name[var],n)) 
 				{
 					if (mode[var]!=VARMODE_SUB || n!=sub[var][1])
-						bad("BAD SUB/ARG COUNT");
+						bad((char*)"BAD SUB/ARG COUNT");
 					inst(CALL_, var);
 					emit(RV_);
 				}
@@ -218,7 +218,7 @@ void base()
 		else inst(LOAD_, var);
 	} else if (want(LP)) expr(), need(RP);
 	else if (want(UBOUND))	need(LP),need(NAME),need(RP),inst(UBOUND_,tokv);
-	else bad("BAD EXPRESSION");
+	else bad((char*)"BAD EXPRESSION");
 	if (neg) emit(SUBS_);	/* NEGATE */
 }
 
@@ -233,7 +233,7 @@ void stmt()
 		inst(FORMAT_, n);
 		break;
 	case SUB:											/* CSTK: {SUB,INDEX,JMP} */
-		if (!compile) bad("SUB MUST BE COMPILED");
+		if (!compile) bad((char*)"SUB MUST BE COMPILED");
 		compile++;										/* MUST BALANCE WITH END */
 		need(NAME), mode[cursub=var=tokv]=2; 			/* SUB NAME */
 		n=0; LIST(need(NAME); sub[var][n+++2]=tokv); 	/* PARAMS */		
@@ -314,7 +314,7 @@ void stmt()
 			if (!funhook || !funhook(name[var],n))
 			 {
 				if (mode[var]!=VARMODE_SUB || n!=sub[var][1])
-					bad("BAD SUB/ARG COUNT");
+					bad((char*)"BAD SUB/ARG COUNT");
 				inst(CALL_, var);
 			}
 		}
@@ -327,9 +327,9 @@ void stmt()
 	case BREAK:		emit((int (*)())BREAK_); break;
 	case BYE:		emit((int (*)())BYE_); break;
 	case GT:		expr(); emit((int (*)())ECHO_); break;
-	default:		if (tok) bad("BAD STATEMENT");
+	default:		if (tok) bad((char*)"BAD STATEMENT");
 	}
-	if (!want(0))		bad("TOKENS AFTER STATEMENT");
+	if (!want(0))		bad((char*)"TOKENS AFTER STATEMENT");
 }
 
 int check_error(char* filen)
@@ -408,8 +408,10 @@ int interp(char* filen)
 			if ((error=check_error(filen)) > -1) return error; 
 		}
 		Serial.print("Compiled Size:");
-		Serial.print((uint)(int)prg-(int)opc);
-		Serial.println(" Steps");
+		Serial.print(cpc * 4);
+		Serial.println(" Bytes");
+		//Serial.print((uint)(int)prg-(int)opc);
+		//Serial.println(" Steps");
 		ipc=cpc+1, compile=0, file.close(), filen=NULL; /* DONE COMPILING */
 		emit((int (*)())BYE_);							/* RUN PROGRAM */
 		DRIVER;  										/* MOVE PROGRAM FORWARD */				

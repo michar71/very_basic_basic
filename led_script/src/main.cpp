@@ -386,10 +386,10 @@ void loop()
   if (startup)
   {
     startup = false;
-    if (SPIFFS.exists("/startup.bas"))
+    if (SPIFFS.exists((char*)"/startup.bas"))
     {
         initbasic(1);
-        int res = interp("/startup.bas");
+        int res = interp((char*)"/startup.bas");
         if (res != 0)
         {
             Serial.print("Error Exit Code: ");
