@@ -352,7 +352,7 @@ void setup()
 
     Serial.begin(115200);
     
-    while (!Serial) 
+    //while (!Serial) 
     {
         // wait for serial port to connect. Needed for native USB port only
         // AND you want to block until there's a connection
