@@ -8,18 +8,13 @@
 Functions:
 =========
 
-Math/Mapping:
-LOADMAP(array, index) -> Load the content of a comma-separated file into an array. If the arry is smaller dasta will be truncasted, if its longer it will be padded with 0. the filename will be 
-    arraydata_[index].csv. Retruns 1 if succesful, 0 if it failed.
-SAVEMAP(array, index) -> Save the content of an array to a comma-separated file. The filename will be arraydata_[index].csv. Returns 1 if succesful, 0 if it failed.
-
-
+General:
 DONE int PRINTS(char *msg) -> Print a string to the console  
-DONE uint8 LIMIT256(int val)
-DONE int LIMIT(int val, int min, int max)
-DONE int ABS(int)
-DONE int SIN256(int)
-DONE int SCALE(int val, int valmin, int valmax, int rmin, int rmax)
+DONE uint8 LIMIT256(int val) -> Limits a valure oy 0..255
+DONE int LIMIT(int val, int min, int max) -> Limits a valuer to given min/max
+DONE int ABS(int) -> Absoluter of value
+DONE int SIN256(int) -> Returns the sine of a value in 0..255 (0=0, 64=90, 128=180, 192=270, 255=360)
+DONE int SCALE(int val, int valmin, int valmax, int rmin, int rmax) -> Scales a value from one range to another
 
 System:
 DONE int TIMESTAMP(int divider)
@@ -42,7 +37,7 @@ DONE HSVTORGBARRAY(array_h, array_s, array_v) -> Convert HSV values in an array 
 LED Specific:
 DONE SETLEDRGB(array R, array G, array B)   -> Upload Array to LED Strip. LED Length is defined by array size. Will init LED Strip on first call. (Usually set all to black...)
 DONE SETLEDCOL(uint8_t r, uint8_t g, uint8_t b) -> Set the whole LED Strip to one solid color.
-DONE int GETMAXLED()
+DONE int GETMAXLED() -> Get the number of LEDs in Strip
 
 Array:
 DONE SHIFTARRAY(array A, int amount, int val) -> Shift the values of an array to left or right by a specific amount setting the new pixels to val
@@ -56,15 +51,13 @@ DONE SCALELIMITARRAY(array A, int perc,int min, int max) -> Scale the values of 
 LUTs:
 There is 1 LUT in thre system. (Fast Acceess, dynamically allocated/released memory). But LUTs can be copied to/from arrays (Which are slow and eat up basic ressources...).
 
-int LOADLUT(index) -> Loads a lut form filesystem. (LUT_[index].csv so for example LUT_1.csv for index 1). Returns the number of entries or zero if failed. 
-int SAVELUT(index) -> Saves ther LUT to the filesystem. (LUT_[index].csv so for example LUT_1.csv for index 1). Returns 1 on success, 0 on failure
-int LUTSIZE(index) -> Returns the size of the LUT in entries or 0 if it does not exist. Actually openes the file and reades it byte by byte to find commas unless its the current index lut already loaded so this can be used to DIM an array.
-int LUTTOARRAY(array) -> Copies LUT to array. If LUT is larger then array it gets truncated, if bigger its filled with zeros. Returns numbers of entries.
-int ARRAYTOLUT(array) -> Copies array to LUT. Retruns 1 if successful, 0 on failure.
-int LUT(int)  -> Returns the value of the LUT at index. If no LUT is loaded it will return 0. If the index is larger then the LUT size it will return 0.
+DONE int LOADLUT(index) -> Loads a lut form filesystem. (LUT_[index].csv so for example LUT_1.csv for index 1). Returns the number of entries or zero if failed. 
+DONE int SAVELUT(index) -> Saves ther LUT to the filesystem. (LUT_[index].csv so for example LUT_1.csv for index 1). Returns 1 on success, 0 on failure
+DONE int LUTSIZE(index) -> Returns the size of the LUT in entries or 0 if it does not exist. Actually openes the file and reades it byte by byte to find commas unless its the current index lut already loaded so this can be used to DIM an array.
+DONE int LUTTOARRAY(array) -> Copies LUT to array. If LUT is larger then array it gets truncated, if bigger its filled with zeros. Returns numbers of entries.
+DONE int ARRAYTOLUT(array) -> Copies array to LUT. 
+DONE int LUT(int)  -> Returns the value of the LUT at index. If no LUT is loaded it will return 0. If the index is larger then the LUT size it will return 0.
 */
-
-
 
 const uint8_t  gamma8[] = {
 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -111,18 +104,290 @@ const uint8_t  gamma8[] = {
 #define SCALELIMITARRAY_T "SCALELIMITARRAY"
 #define RGBTOHSVARRAY_T "RGBTOHSVARRAY"
 #define HSVTORGBARRAY_T "HSVTORGBARRAY"
+#define LOADLUT_T "LOADLUT"
+#define SAVELUT_T "SAVELUT"
+#define LUTSIZE_T "LUTSIZE"
+#define LUTTOARRAY_T "LUTTOARRAY"
+#define ARRAYTOLUT_T "ARRAYTOLUT"
+#define LUT_T "LUT"
 
-void dumpStack(void)
+
+//-------------------------------------
+//LUTs
+//-------------------------------------
+int* pLUT = NULL;
+int lutSize = 0;
+int currentLUTIndex = -1; //-1 means no LUT loaded
+
+//Try to open LUT and check number of elements
+//Returns number of elements
+//0 = Failed to count elements
+//-1 = LUT does not exists
+int checkLut(uint8_t index)
 {
-    Serial.print("SP:");
-    Serial.println(sp-stk);
-    for (int ii=STKSZ;ii>=0;ii--)
+    //Try to open the file
+    String filename = String("/LUT_") + String(index) + ".csv";
+    File file = SPIFFS.open(filename.c_str(), FILE_READ);
+    if (!file)
     {
-        Serial.print(ii);
-        Serial.print(":");
-        Serial.println(stk[ii]);
+        Serial.printf("LUT %d does not exists\n", index);
+        return -1; //LUT does not exists
     }
+    int count = 0;
+    char c;
+    while (file.available())
+    {
+        c = file.read();
+        if (c == ',')
+            count++;
+    }
+    file.close();
+    if (count == 0)
+    {
+        Serial.printf("LUT %d is empty\n", index);
+        return 0; //LUT is empty
+    }
+    return count + 1; //Return number of elements
 }
+
+int loadLut(uint8_t index)
+{
+    //Check if we already have a LUT loaded
+    if (currentLUTIndex == index)
+    {
+        return lutSize; //Return size of current LUT
+    }
+
+    //Check if the LUT exists and get the size
+    int size = checkLut(index);
+    if (size < 0)
+        return 0; //LUT does not exists or is empty
+
+    //Allocate memory for the LUT
+    if (pLUT != NULL)
+        free(pLUT); //Free previous LUT memory
+
+    pLUT = (int*)calloc(size, sizeof(int));
+    if (pLUT == NULL)
+    {
+        return 0; //Memory allocation failed
+    }
+
+    //Open the file and read the values into the LUT
+    String filename = String("/LUT_") + String(index) + ".csv";
+    File file = SPIFFS.open(filename.c_str(), FILE_READ);
+    if (!file)
+    {
+        free(pLUT);
+        pLUT = NULL;
+        return 0; //Failed to open file
+    }
+
+    int i = 0;
+    String value;
+    while (file.available())
+    {
+        char c = file.read();
+        if (c == ',')
+        {
+            pLUT[i++] = value.toInt();
+            value = ""; //Reset value for next read
+        }
+        else
+        {
+            value += c; //Append character to value
+        }
+    }
+    
+    //Read last value (after last comma)
+    if (value.length() > 0 && i < size)
+        pLUT[i++] = value.toInt();
+
+    file.close();
+    
+    lutSize = i; //Set the size of the LUT
+    currentLUTIndex = index; //Set current LUT index
+    return lutSize; //Return size of loaded LUT
+}
+int saveLut(uint8_t index)
+{
+    //Check if we have a LUT loaded
+    if (pLUT == NULL || lutSize <= 0)
+    {
+        return 0; //No LUT to save
+    }
+
+    //Open the file for writing
+    String filename = String("/LUT_") + String(index) + ".csv";
+    File file = SPIFFS.open(filename.c_str(), FILE_WRITE);
+    if (!file)
+    {
+        return 0; //Failed to open file
+    }
+
+    //Write the values to the file
+    for (int i = 0; i < lutSize; i++)
+    {
+        file.print(pLUT[i]);
+        if (i < lutSize - 1)
+            file.print(","); //Add comma between values
+    }
+    
+    file.close(); 
+    return 1; //Success
+}   
+
+int LUT_()
+{
+    int val = *sp;  //Pull value from Stack
+    if (val<0) 
+    {
+        bad((char*)"LUT: NEGATIVE INDEX");
+        return 0;
+    }
+    if (pLUT == NULL || currentLUTIndex < 0)
+    {
+        bad((char*)"LUT: NO LUT LOADED");
+        return 0; //No LUT loaded
+    }
+    if (val >= lutSize)
+    {
+        bad((char*)"LUT: INDEX OUT OF BOUNDS");
+        return 0; //Index out of bounds
+    }
+    *sp = pLUT[val]; //Push the value from the LUT to the stack
+    STEP;
+}
+
+
+int LOADLUT_()
+{
+    int index = *sp;  //Pull value from Stack
+    if (index<0) 
+    {
+        bad((char*)"LOADLUT: NEGATIVE INDEX");
+        return 0;
+    }
+    int size = loadLut(index);
+    if (size <= 0)
+    {
+        bad((char*)"LOADLUT: FAILED TO LOAD LUT");
+        return 0; //Failed to load LUT
+    }
+    *sp = size; //Push the size of the LUT to the stack
+    STEP;
+}
+
+int SAVELUT_()
+{
+    int index = *sp;  //Pull value from Stack
+    if (index<0) 
+    {
+        bad((char*)"SAVELUT: NEGATIVE INDEX");
+        return 0;
+    }
+    int result = saveLut(index);
+    if (result <= 0)
+    {
+        bad((char*)"SAVELUT: FAILED TO SAVE LUT");
+        return 0; //Failed to save LUT
+    }
+    *sp = result; //Push the result to the stack
+    STEP;
+}   
+
+int LUTTOARRAY_()
+{
+    Val *arr = (Val*)*sp;  //Pull array from stack
+    //Validate array
+    if (arr == 0)
+    {
+        bad((char*)"LUTTOARRAY: BAD ARRAY POINTER");
+        return 0;
+    } 
+
+    if (pLUT == NULL || currentLUTIndex < 0)
+    {
+        bad((char*)"LUTTOARRAY: NO LUT LOADED");
+        return 0; //No LUT loaded
+    }
+
+    //Copy LUT to array
+    int size = lutSize < arr[0] ? lutSize : arr[0]; //Limit to array size
+    for (int ii=1; ii<=size; ii++)
+    {
+        arr[ii] = pLUT[ii-1]; //Copy LUT value to array
+    }
+    
+    arr[0] = size; //Set the first element to the size of the LUT
+
+    *sp = 0; //Push 0 to the stack
+    STEP;    
+}   
+
+int ARRAYTOLUT_()
+{
+    Val *arr = (Val*)*sp;      //Pull array from stack
+    //Validate array
+    if (arr == 0)
+    {
+        bad((char*)"ARRAYTOLUT: BAD ARRAY POINTER");
+        return 0;
+    }
+
+    if (pLUT != NULL)
+        free(pLUT); 
+
+    pLUT = (int*)calloc(arr[0], sizeof(int)); //Allocate memory for LUT
+    if (pLUT == NULL)
+    {
+        bad((char*)"ARRAYTOLUT: MEMORY ALLOCATION FAILED");
+        return 0; //Memory allocation failed
+    }
+    lutSize = arr[0]; //Set the size of the LUT
+    currentLUTIndex = -1; //No index set yet
+    
+    //Copy array to LUT
+    int size = arr[0] < lutSize ? arr[0] : lutSize; //Limit to LUT size
+    for (int ii=1; ii<=size; ii++)
+    {
+        pLUT[ii-1] = arr[ii]; //Copy array value to LUT
+    }
+
+    *sp = 0; //Push 0 to the stack to indicate success
+    STEP;    
+}
+
+int LUTSIZE_()
+{
+    int index = *sp;  //Pull value from Stack and rewind stack
+    if (index<0) 
+    {
+        bad((char*)"LUTSIZE: NEGATIVE INDEX");
+        return 0;
+    }
+    //If we have a LUT loaded just return the size of the current LUT
+    if (pLUT != NULL && currentLUTIndex == index)
+    {
+        *sp = lutSize; //If we already have the LUT loaded, return its size
+        STEP;
+    }
+
+    //If not check the LUT on FS
+    int size = checkLut(index);
+    if (size < 0)
+    {
+        bad((char*)"LUTSIZE: LUT DOES NOT EXISTS");
+        return 0; //LUT does not exists
+    }
+    *sp = size; //Push the size of the LUT to the stack
+    STEP;
+}   
+
+//------------------------------------
+//General Commands
+//------------------------------------
+
 
 int PRINTS_() 
 { 
@@ -746,7 +1011,62 @@ int funhook_(char *msg, int n)
             return 0;
         }        
 		emit(HSVTORGBARRAY_);STEP;
-    }                         
+    }      
+    if (!strcmp(msg,LOADLUT_T))
+    {
+        if (n!=1) 
+        {
+            bad((char*)"LOADLUT: 1 ARGUMENT REQUIRED");
+            return 0;
+        }
+        emit(LOADLUT_);STEP;
+    }
+    if (!strcmp(msg,SAVELUT_T))
+    {
+        if (n!=1) 
+        {
+            bad((char*)"SAVELUT: 1 ARGUMENT REQUIRED");
+            return 0;
+        }
+        emit(SAVELUT_);STEP;
+    }
+    if (!strcmp(msg,LUTSIZE_T))
+    {
+        if (n!=1) 
+        {
+            bad((char*)"LUTSIZE: 1 ARGUMENT REQUIRED");
+            return 0;
+        }
+        emit(LUTSIZE_);STEP;
+    }
+    if (!strcmp(msg,LUTTOARRAY_T))
+    {
+        if (n!=1) 
+        {
+            bad((char*)"LUTTOARRAY: 1 ARGUMENT REQUIRED");
+            return 0;
+        }
+        emit(LUTTOARRAY_);STEP;
+    }
+    if (!strcmp(msg,ARRAYTOLUT_T))
+    {
+        if (n!=1) 
+        {
+            bad((char*)"ARRAYTOLUT: 1 ARGUMENT REQUIRED");
+            return 0;
+        }
+        emit(ARRAYTOLUT_);STEP;
+    }
+    if (!strcmp(msg,LUT_T))
+    {
+        if (n!=1) 
+        {
+            bad((char*)"LUT: 1 ARGUMENT REQUIRED");
+            return 0;
+        }
+        emit(LUT_);STEP;
+    }
+    //If we reach here we did not find a matching function                   
     else	
 		return 0;
 }
