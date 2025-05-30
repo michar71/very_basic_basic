@@ -12,6 +12,8 @@ Math/Mapping:
 LOADMAP(array, index) -> Load the content of a comma-separated file into an array. If the arry is smaller dasta will be truncasted, if its longer it will be padded with 0. the filename will be 
     arraydata_[index].csv. Retruns 1 if succesful, 0 if it failed.
 SAVEMAP(array, index) -> Save the content of an array to a comma-separated file. The filename will be arraydata_[index].csv. Returns 1 if succesful, 0 if it failed.
+
+
 DONE int PRINTS(char *msg) -> Print a string to the console  
 DONE uint8 LIMIT256(int val)
 DONE int LIMIT(int val, int min, int max)
@@ -20,22 +22,22 @@ DONE int SIN256(int)
 DONE int SCALE(int val, int valmin, int valmax, int rmin, int rmax)
 
 System:
-
 DONE int TIMESTAMP(int divider)
 DONE WAIT (int ms)
 LOCKTIME()        -> Stores the current time 
-WAITIME(ms)       -> x mS minus the time that has passed since LOCKTIME was called. This allows to have consistent timing even if scripts take some time to execute for each frame.
+WAITIME(ms)       -> x mS minus the time that has passed since LOCKTIME was called. This allows to have consistent timing/delays even if scripts take some (even variable) time to execute for each frame.
 DONE int RANDOM(int min, int max)
+
+Hardware:
 uint8 READANALOG(int ch)
 uint8 READPIN(int gpio)
 SETPIN(int gpio)
 CLEARPIN(int gpio)
 WAITEVENT(int event, int cond, int val)  -> Wait for "event" (Analog, Digital, Timer) to (cross low/high, cross high/low) of value
 
-Color Space ->RGBtoHSB and Back (Requires multiple parameters or arrays as parameters? For all these color functions we just ignore values in arrays larger then 3 and set it to zero if less then 3.... ):
-HSBTORGBARRAY(array_h, array_s, array_b)
-RGBTOHSBARRAY(array_r, array_g, array_b)
-
+Color Space: 
+DONE HSVTORGBARRAY(array_h, array_s, array_v) -> Convert HSV values in an array to RGB values in an array
+DONE HSVTORGBARRAY(array_h, array_s, array_v) -> Convert HSV values in an array to RGB values in an array
 
 LED Specific:
 DONE SETLEDRGB(array R, array G, array B)   -> Upload Array to LED Strip. LED Length is defined by array size. Will init LED Strip on first call. (Usually set all to black...)
@@ -50,6 +52,16 @@ DONE RGBTOHSVARRAY(array R, array G, array B) -> Convert RGB values in an array 
 DONE HSVTORGBARRAY(array H, array S, array V) -> Convert HSV values in an array to RGB values in an array
 DONE SETARRAY(array A, int start,int end, int value) -> Set the value of an array at a specific index
 DONE SCALELIMITARRAY(array A, int perc,int min, int max) -> Scale the values of an array by a percentage but kimit it to max 255, min 0
+
+LUTs:
+There is 1 LUT in thre system. (Fast Acceess, dynamically allocated/released memory). But LUTs can be copied to/from arrays (Which are slow and eat up basic ressources...).
+
+int LOADLUT(index) -> Loads a lut form filesystem. (LUT_[index].csv so for example LUT_1.csv for index 1). Returns the number of entries or zero if failed. 
+int SAVELUT(index) -> Saves ther LUT to the filesystem. (LUT_[index].csv so for example LUT_1.csv for index 1). Returns 1 on success, 0 on failure
+int LUTSIZE(index) -> Returns the size of the LUT in entries or 0 if it does not exist. Actually openes the file and reades it byte by byte to find commas unless its the current index lut already loaded so this can be used to DIM an array.
+int LUTTOARRAY(array) -> Copies LUT to array. If LUT is larger then array it gets truncated, if bigger its filled with zeros. Returns numbers of entries.
+int ARRAYTOLUT(array) -> Copies array to LUT. Retruns 1 if successful, 0 on failure.
+int LUT(int)  -> Returns the value of the LUT at index. If no LUT is loaded it will return 0. If the index is larger then the LUT size it will return 0.
 */
 
 
