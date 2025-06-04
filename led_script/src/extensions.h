@@ -15,6 +15,8 @@ DONE int LIMIT(int val, int min, int max) -> Limits a valuer to given min/max
 DONE int ABS(int) -> Absoluter of value
 DONE int SIN256(int) -> Returns the sine of a value in 0..255 (0=0, 64=90, 128=180, 192=270, 255=360)
 DONE int SCALE(int val, int valmin, int valmax, int rmin, int rmax) -> Scales a value from one range to another
+int GAMMA256(int val) -> Same lookup based Gamma function  we apply before setting the LEDS
+int USEGAMMA(int enable) -> Automatically apply Gamma correction to all LED values 0 = Disable, 1 = Enable
 
 System:
 DONE int TIMESTAMP(int divider)
@@ -87,6 +89,8 @@ const uint8_t  gamma8[] = {
 #define LIMIT_T "LIMIT"
 #define SCALE_T "SCALE"
 #define SIN256_T "SIN256"
+#define GAMMA256_T "GAMMA256"
+#define USEGAMMA_T "USEGAMMA"
 
 
 #define ABS_T "ABS"
@@ -118,6 +122,8 @@ const uint8_t  gamma8[] = {
 int* pLUT = NULL;
 int lutSize = 0;
 int currentLUTIndex = -1; //-1 means no LUT loaded
+
+bool useGamma = false;
 
 //Try to open LUT and check number of elements
 //Returns number of elements
@@ -465,10 +471,19 @@ int SETLEDRGB_()
     } 
     //copy arrays to LED array
     for (int ii=0;ii<NUM_LEDS;ii++)
-    {
-        leds[ii].r = gamma8[(uint8_t)arr_r[ii+1]];
-        leds[ii].g = gamma8[(uint8_t)arr_g[ii+1]];
-        leds[ii].b = gamma8[(uint8_t)arr_b[ii+1]];                
+    { 
+        if (useGamma)
+        {
+            leds[ii].r = gamma8[(uint8_t)arr_r[ii+1]];
+            leds[ii].g = gamma8[(uint8_t)arr_g[ii+1]];
+            leds[ii].b = gamma8[(uint8_t)arr_b[ii+1]];
+        }
+        else
+        {
+            leds[ii].r = (uint8_t)arr_r[ii+1];
+            leds[ii].g = (uint8_t)arr_g[ii+1];
+            leds[ii].b = (uint8_t)arr_b[ii+1];           
+        }                
     }
     //Show LED 
     FastLED.show();
@@ -576,9 +591,18 @@ int SETLEDCOL_()
     //copy arrays to LED array
     for (int ii=0;ii<NUM_LEDS;ii++)
     {
-        leds[ii].r = gamma8[(uint8_t)r];
-        leds[ii].g = gamma8[(uint8_t)g];
-        leds[ii].b = gamma8[(uint8_t)b];                
+        if (useGamma)
+        {
+            leds[ii].r = gamma8[(uint8_t)r];
+            leds[ii].g = gamma8[(uint8_t)g];
+            leds[ii].b = gamma8[(uint8_t)b];
+        }
+        else
+        {
+            leds[ii].r = (uint8_t)r;
+            leds[ii].g = (uint8_t)g;
+            leds[ii].b = (uint8_t)b;
+        }                
     }
     //Show LED 
     FastLED.show();
@@ -620,6 +644,23 @@ int SIN256_()
     double scaledval = ((sinval + 1) / 2) * 255;
     *sp=(int)scaledval; //Push result to the stack
     STEP; 
+}
+
+int GAMMA256_()
+{
+    int val = *sp;  //Pull value from Stack
+    *sp=(int)gamma8[val]; //Push result to the stack
+    STEP; 
+}
+
+int USEGAMMA_()
+{
+    int val = *sp;  //Pull value from Stack
+    if (val == 0)
+        useGamma = false;
+    else
+        useGamma = true;
+    *sp= 0;
 }
 
 int COPYARRAY_()
@@ -1066,6 +1107,24 @@ int funhook_(char *msg, int n)
         }
         emit(LUT_);STEP;
     }
+    if (!strcmp(msg,USEGAMMA_T))
+    {
+        if (n!=1) 
+        {
+            bad((char*)"USEGAMMA: 1 ARGUMENT REQUIRED");
+            return 0;
+        }
+        emit(USEGAMMA_);STEP;
+    }    
+    if (!strcmp(msg,GAMMA256_T))
+    {
+        if (n!=1) 
+        {
+            bad((char*)"GAMMA256: 1 ARGUMENT REQUIRED");
+            return 0;
+        }
+        emit(GAMMA256_);STEP;
+    }        
     //If we reach here we did not find a matching function                   
     else	
 		return 0;
