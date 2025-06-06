@@ -7,10 +7,13 @@
 #include <string.h>
 #include <ctype.h>
 
+#ifdef REAL_ESP32_HW
+#include "main.h" //Include the main header with all the defines and includes
 #include <Arduino.h>
+#endif
 #include "FS.h"
 #include "SPIFFS.h"
-#include "FastLED.h"
+
 
 //Forward declarations
 void base();
@@ -423,5 +426,6 @@ int interp(char* filen)
 //Because I did not not take computer science at university to not do this.
 //MS Copilot comment -> "This is a hack, but it works.""   
 #include "extensions.h"
+
 
 #endif

@@ -1,11 +1,11 @@
+#define REAL_ESP32_HW
+
 #include <Arduino.h>
 #include "FS.h"
 #include "SPIFFS.h"
 #include <SimpleSerialShell.h>
 #include "basic.h"
 #include "main.h"
-
-
 
 
 /*

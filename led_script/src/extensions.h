@@ -1,6 +1,9 @@
 #ifndef extensions_h
 #define extensions_h
 
+
+
+
 #include "main.h"
 #include <math.h>
 
@@ -115,7 +118,71 @@ const uint8_t  gamma8[] = {
 #define ARRAYTOLUT_T "ARRAYTOLUT"
 #define LUT_T "LUT"
 
+//-------------------------------------
+//Real HW dependecies.... We can ifdef this with stubs or PC functions for testing on other platform
+//-------------------------------------
+#ifdef REAL_ESP32_HW
 
+#include "FastLED.h"
+
+int getNumLeds()
+{
+    return NUM_LEDS; //Return the number of LEDs in the strip
+}
+
+void setLEDr(int pos, int val)
+{
+    leds[pos].r = (uint8_t)val;
+}
+
+void setLEDg(int pos, int val)
+{
+    leds[pos].g = (uint8_t)val;
+}
+
+void setLEDb(int pos, int val)
+{
+    leds[pos].b = (uint8_t)val;
+}
+
+void updateLEDs()
+{
+    FastLED.show(); //Update the LED strip with the new values
+}
+
+unsigned long getTimestamp()
+{
+    return millis(); //Return the current timestamp in milliseconds
+}
+
+#else
+int getNumLeds()
+{
+    return 0; //Return the number of LEDs in the strip
+}
+
+void setLEDr(int pos, int val)
+{
+}
+
+void setLEDg(int pos, int val)
+{
+}
+
+void setLEDb(int pos, int val)
+{
+}
+
+void updateLEDs()
+{
+    //Update the LED strip with the new values
+}
+
+unsigned long getTimestamp()
+{
+    return 0; //Return the current timestamp in milliseconds
+}
+#endif
 //-------------------------------------
 //LUTs
 //-------------------------------------
@@ -429,12 +496,12 @@ int WAIT_()
     if (val<0)
         val = 0;
 
-    long start = millis();
+    unsigned long start = getTimestamp();
     do
     {
         yield();    
     } 
-    while (millis() < (start + val));
+    while (getTimestamp() < (start + val));
      
     *sp=0; //Push back to to the stack
     STEP;
@@ -446,7 +513,7 @@ int GETMAXLED_()
     if (val<0)
         val = 0;
     
-    *sp=NUM_LEDS; //Push back to to the stack
+    *sp=getNumLeds(); //Push back to to the stack
     STEP;
 }
 
@@ -464,29 +531,29 @@ int SETLEDRGB_()
         return 0;
     } 
 
-    if ((arr_r[0] != NUM_LEDS) || (arr_g[0] != NUM_LEDS) || (arr_b[0] != NUM_LEDS))
+    if ((arr_r[0] != getNumLeds()) || (arr_g[0] != getNumLeds()) || (arr_b[0] != getNumLeds()))
     {
         bad((char*)"SETLEDRGB: WRONG ARRAY LENGTH");
         return 0;
     } 
     //copy arrays to LED array
-    for (int ii=0;ii<NUM_LEDS;ii++)
+    for (int ii=0;ii<getNumLeds();ii++)
     { 
         if (useGamma)
         {
-            leds[ii].r = gamma8[(uint8_t)arr_r[ii+1]];
-            leds[ii].g = gamma8[(uint8_t)arr_g[ii+1]];
-            leds[ii].b = gamma8[(uint8_t)arr_b[ii+1]];
+            setLEDr(ii, gamma8[arr_r[ii+1]]);
+            setLEDg(ii, gamma8[arr_g[ii+1]]);
+            setLEDb(ii, gamma8[arr_b[ii+1]]);
         }
         else
         {
-            leds[ii].r = (uint8_t)arr_r[ii+1];
-            leds[ii].g = (uint8_t)arr_g[ii+1];
-            leds[ii].b = (uint8_t)arr_b[ii+1];           
+            setLEDr(ii, arr_r[ii+1]);
+            setLEDg(ii, arr_g[ii+1]);
+            setLEDb(ii, arr_b[ii+1]);       
         }                
     }
     //Show LED 
-    FastLED.show();
+    updateLEDs();
 
     //Hmm... How do we deal with no return??? Just return a dummy value?
     *sp = 0; //Push 0 to the stack
@@ -589,23 +656,23 @@ int SETLEDCOL_()
     b = constrain(b,0,255); //Limit to 0..255
 
     //copy arrays to LED array
-    for (int ii=0;ii<NUM_LEDS;ii++)
+    for (int ii=0;ii<getNumLeds();ii++)
     {
         if (useGamma)
         {
-            leds[ii].r = gamma8[(uint8_t)r];
-            leds[ii].g = gamma8[(uint8_t)g];
-            leds[ii].b = gamma8[(uint8_t)b];
+            setLEDr(ii, gamma8[r]);
+            setLEDg(ii, gamma8[g]);
+            setLEDb(ii, gamma8[b]);
         }
         else
         {
-            leds[ii].r = (uint8_t)r;
-            leds[ii].g = (uint8_t)g;
-            leds[ii].b = (uint8_t)b;
-        }                
+            setLEDr(ii, r);
+            setLEDg(ii, g);
+            setLEDb(ii, b);
+        }             
     }
     //Show LED 
-    FastLED.show();
+    updateLEDs();
 
     //Hmm... How do we deal with no return??? Just return a dummy value?
     *sp = 0; //Push 0 to the stack
@@ -661,6 +728,7 @@ int USEGAMMA_()
     else
         useGamma = true;
     *sp= 0;
+    STEP; 
 }
 
 int COPYARRAY_()
@@ -881,7 +949,7 @@ int LIMIT_()
 int TIMESTAMP_()
 {
     int div = (int)*sp;
-    int ts = (int)(millis()/div);
+    int ts = (int)(getTimestamp()/div);
     *sp=ts; //Push back to to the stack
     STEP;
 }
