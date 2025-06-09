@@ -11,8 +11,7 @@
 #include "main.h" //Include the main header with all the defines and includes
 #include <Arduino.h>
 #endif
-#include "FS.h"
-#include "SPIFFS.h"
+#include "LittleFS.h"
 
 
 //Forward declarations
@@ -363,7 +362,7 @@ int interp(char* filen)
 	//Open file
 	if (filen != NULL)
 	{
-		file = SPIFFS.open(filen);
+		file = LittleFS.open(filen);
 		if (file.size() > 0)
 			Serial.println("File Opened");
 		else

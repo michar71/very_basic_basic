@@ -200,7 +200,7 @@ int checkLut(uint8_t index)
 {
     //Try to open the file
     String filename = String("/LUT_") + String(index) + ".csv";
-    File file = SPIFFS.open(filename.c_str(), FILE_READ);
+    File file = LittleFS.open(filename.c_str(), FILE_READ);
     if (!file)
     {
         Serial.printf("LUT %d does not exists\n", index);
@@ -248,7 +248,7 @@ int loadLut(uint8_t index)
 
     //Open the file and read the values into the LUT
     String filename = String("/LUT_") + String(index) + ".csv";
-    File file = SPIFFS.open(filename.c_str(), FILE_READ);
+    File file = LittleFS.open(filename.c_str(), FILE_READ);
     if (!file)
     {
         free(pLUT);
@@ -292,7 +292,7 @@ int saveLut(uint8_t index)
 
     //Open the file for writing
     String filename = String("/LUT_") + String(index) + ".csv";
-    File file = SPIFFS.open(filename.c_str(), FILE_WRITE);
+    File file = LittleFS.open(filename.c_str(), FILE_WRITE);
     if (!file)
     {
         return 0; //Failed to open file

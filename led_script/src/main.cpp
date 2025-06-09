@@ -1,8 +1,7 @@
 #define REAL_ESP32_HW
 
 #include <Arduino.h>
-#include "FS.h"
-#include "SPIFFS.h"
+#include "LittleFS.h"
 #include <SimpleSerialShell.h>
 #include "basic.h"
 #include "main.h"
@@ -146,7 +145,7 @@ int delFile(int argc, char **argv)
         Serial.println("Wrong argument count");
         return 1;
     }
-    deleteFile(SPIFFS,argv[1]);
+    deleteFile(LittleFS,argv[1]);
     return 0;
 }
 
@@ -157,7 +156,7 @@ int renFile(int argc, char **argv)
         Serial.println("Wrong argument count");
         return 1;
     }
-    renameFile(SPIFFS,argv[1], argv[2]);
+    renameFile(LittleFS,argv[1], argv[2]);
     return 0;
 }
 
@@ -169,7 +168,7 @@ int listFile(int argc, char **argv)
         return 1;
     }
 
-    readFile(SPIFFS,argv[1]); 
+    readFile(LittleFS,argv[1]); 
     Serial.printf("");
     return 0;
 }
@@ -181,7 +180,7 @@ int listDir(int argc, char **argv)
         Serial.println("Wrong argument count");
         return 1;
     }
-    listDir(SPIFFS,"/",1); 
+    listDir(LittleFS,"/",1); 
     return 0;
 }
 
@@ -204,7 +203,7 @@ int loadFile(int argc, char **argv)
         //Flush serial buffer
         Serial.flush();
         //create file
-        File file = SPIFFS.open(argv[1], FILE_WRITE);
+        File file = LittleFS.open(argv[1], FILE_WRITE);
         if (!file) 
         {
             Serial.println("- failed to open file for writing");
@@ -371,9 +370,9 @@ void setup()
     shell.addCommand(F("del"), delFile);
     shell.addCommand(F("load"), loadFile);        
     
-    if (!SPIFFS.begin(FORMAT_SPIFFS_IF_FAILED)) 
+    if (!LittleFS.begin(FORMAT_SPIFFS_IF_FAILED)) 
     {
-        Serial.println("SPIFFS Mount Failed");
+        Serial.println("littleFS Mount Failed");
     }
 
     Serial.println("Ready.");
@@ -386,7 +385,7 @@ void loop()
   if (startup)
   {
     startup = false;
-    if (SPIFFS.exists((char*)"/startup.bas"))
+    if (LittleFS.exists((char*)"/startup.bas"))
     {
         initbasic(1);
         int res = interp((char*)"/startup.bas");
