@@ -2,8 +2,6 @@
 #define extensions_h
 
 
-
-
 #include "main.h"
 #include <math.h>
 
@@ -18,8 +16,8 @@ DONE int LIMIT(int val, int min, int max) -> Limits a valuer to given min/max
 DONE int ABS(int) -> Absoluter of value
 DONE int SIN256(int) -> Returns the sine of a value in 0..255 (0=0, 64=90, 128=180, 192=270, 255=360)
 DONE int SCALE(int val, int valmin, int valmax, int rmin, int rmax) -> Scales a value from one range to another
-int GAMMA256(int val) -> Same lookup based Gamma function  we apply before setting the LEDS
-int USEGAMMA(int enable) -> Automatically apply Gamma correction to all LED values 0 = Disable, 1 = Enable
+DONE int GAMMA256(int val) -> Same lookup based Gamma function  we apply before setting the LEDS
+DONE int USEGAMMA(int enable) -> Automatically apply Gamma correction to all LED values 0 = Disable, 1 = Enable
 
 System:
 DONE int TIMESTAMP(int divider)
@@ -33,7 +31,7 @@ uint8 READANALOG(int ch)
 uint8 READPIN(int gpio)
 SETPIN(int gpio)
 CLEARPIN(int gpio)
-WAITEVENT(int event, int cond, int val)  -> Wait for "event" (Analog, Digital, Timer) to (cross low/high, cross high/low) of value
+int CHECKEVENT(int event, int cond, int val)  -> Wait for "event" (Analog, Digital, Timer, Sync Pulse) to (cross low/high, cross high/low, larger, smaller, equal, happened) of value (abs. value, count)
 
 Color Space: 
 DONE HSVTORGBARRAY(array_h, array_s, array_v) -> Convert HSV values in an array to RGB values in an array
@@ -62,6 +60,14 @@ DONE int LUTSIZE(index) -> Returns the size of the LUT in entries or 0 if it doe
 DONE int LUTTOARRAY(array) -> Copies LUT to array. If LUT is larger then array it gets truncated, if bigger its filled with zeros. Returns numbers of entries.
 DONE int ARRAYTOLUT(array) -> Copies array to LUT. 
 DONE int LUT(int)  -> Returns the value of the LUT at index. If no LUT is loaded it will return 0. If the index is larger then the LUT size it will return 0.
+
+Location Based Functions. All Distances in meters, angles in Degrees:
+int HASORIGIN(0)
+int ORIGINXDIST(0)
+int ORIGINYDIST(0)
+int ORIGINDIST(0)
+int ORIGINANGLE(0)
+
 */
 
 const uint8_t  gamma8[] = {
@@ -200,7 +206,7 @@ int checkLut(uint8_t index)
 {
     //Try to open the file
     String filename = String("/LUT_") + String(index) + ".csv";
-    File file = SPIFFS.open(filename.c_str(), FILE_READ);
+    File file = FSLINK.open(filename.c_str(), FILE_READ);
     if (!file)
     {
         Serial.printf("LUT %d does not exists\n", index);
@@ -248,7 +254,7 @@ int loadLut(uint8_t index)
 
     //Open the file and read the values into the LUT
     String filename = String("/LUT_") + String(index) + ".csv";
-    File file = SPIFFS.open(filename.c_str(), FILE_READ);
+    File file = FSLINK.open(filename.c_str(), FILE_READ);
     if (!file)
     {
         free(pLUT);
@@ -292,7 +298,7 @@ int saveLut(uint8_t index)
 
     //Open the file for writing
     String filename = String("/LUT_") + String(index) + ".csv";
-    File file = SPIFFS.open(filename.c_str(), FILE_WRITE);
+    File file = FSLINK.open(filename.c_str(), FILE_WRITE);
     if (!file)
     {
         return 0; //Failed to open file
