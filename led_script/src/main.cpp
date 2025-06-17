@@ -389,8 +389,16 @@ void setup()
     blink_leds(CRGB::Green);
 }
 
+
+//#TODO add sensor data aquisition to own thread
+//Think about what it would take to run BASIC in own thread.
+//- LED Control
+//- Sensor Data Use
+//- Command Line output
 void loop() 
 {
+
+  //Hmm... Maybe this should actually happen in setup?
   static bool startup = true;  
   if (startup)
   {

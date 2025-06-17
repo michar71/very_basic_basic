@@ -62,11 +62,26 @@ DONE int ARRAYTOLUT(array) -> Copies array to LUT.
 DONE int LUT(int)  -> Returns the value of the LUT at index. If no LUT is loaded it will return 0. If the index is larger then the LUT size it will return 0.
 
 Location Based Functions. All Distances in meters, angles in Degrees:
-int HASORIGIN(0)
+int HASORIGIN(0)   //Origin Data is avaliable
+int HASGPS(0) //Spped/Dir are avialable
 int ORIGINXDIST(0)
 int ORIGINYDIST(0)
 int ORIGINDIST(0)
 int ORIGINANGLE(0)
+int GPSSPEED(0)    //in m/s
+int GPSDIR(0) Angle
+
+IMU Basaed Functions:
+int HASGYRO(0) //IMU Data is avaliable
+int HASACC(0) //IMU Data is avaliable
+int HASMAG(0)  
+int PITCH(0) //Pitch in degrees
+int ROLL(0) //Roll in degrees
+int YAW(0) //Yaw in degrees
+int ACCX(0) //Accelerometer X in m/s^2
+int ACCY(0) //Accelerometer Y in m/s^2
+int ACCZ(0) //Accelerometer Z in m/s^2
+int MAGDIR(0) //Magnetometer Direction in degrees 
 
 */
 
@@ -1210,4 +1225,20 @@ void registerhook()
     kwdhook=kwdhook_;
     funhook=funhook_;
 }
+
+//Location Callback provides potentially Latitude, Longitude, Altitude, Speed, Course
+void register_location_callback()
+{
+    //This is called by the main program to register the location callback
+    //We don't need to do anything here as we don't have a location callback
+}
+
+
+//IMU Callback provides potentially Roll, Pitch, Yaw, AccX, AccY, AccZ, MagDir 
+void register_imu_callback()
+{
+    //This is called by the main program to register the IMU callback
+    //We don't need to do anything here as we don't have an IMU callback
+}
+
 #endif
