@@ -39,20 +39,24 @@ enum {	NAME=1,NUMBER,STRING,LP,RP,COMMA,ADD,SUBS,MUL,DIV,MOD,
 char	*kwd[]={ (char*)"AND",(char*)"OR",(char*)"FORMAT",(char*)"SUB",(char*)"END",(char*)"RETURN",(char*)"LOCAL",(char*)"WHILE",
 	(char*)"FOR",(char*)"TO",(char*)"IF",(char*)"ELSE",(char*)"THEN",(char*)"DIM",(char*)"UBOUND",(char*)"BYE",(char*)"BREAK",(char*)"RESUME",0 };
 
-char lbuf[256],tokn[SYMSZ],*lp; 				/* LEXER STATE */
-int	lnum,tok,tokv,ungot;						/* LEXER STATE */
-int	(*prg[PRGSZ])(),(**pc)(),cpc,lmap[PRGSZ]; 	/* COMPILED PROGRAM */
-Val	stk[STKSZ],*sp;								/* RUN-TIME STACK */
-Val	value[VARS];								/* VARIABLE VALUES */
-char name[VARS][SYMSZ];							/* VARIABLE NAMES */
-int	sub[VARS][LOCS+2];							/* N,LOCAL VAR INDEXES */
-uint8_t	mode[VARS];								/* 0=NONE, 1=DIM, 2=SUB*/
-Val	ret;										/* FUNCTION RETURN VALUE */
-int	cstk[STKSZ], *csp;							/* COMPILER STACK */
-int	nvar,cursub,temp,compile,ipc,(**opc)(); 	/* COMPILER STATE */
-int globalerror;								/* GLOBAL ERROR */
-char stab[STRSZ], *stabp;   					/* STRING TABLE */
-
+static EXT_RAM_ATTR char lbuf[256],tokn[SYMSZ];		 				/* LEXER STATE */
+char *lp;															/* LEXER POINTER */
+int	lnum,tok,tokv,ungot;											/* LEXER STATE */
+static EXT_RAM_ATTR int	(*prg[PRGSZ])(),(**pc)(),lmap[PRGSZ]; 		/* COMPILED PROGRAM */
+int cpc;															/* COMPILED PROGRAM POINTER */
+static EXT_RAM_ATTR Val	stk[STKSZ];									/* RUN-TIME STACK */
+Val *sp;															/* STACK POINTER */
+static EXT_RAM_ATTR Val	value[VARS];								/* VARIABLE VALUES */
+static EXT_RAM_ATTR char name[VARS][SYMSZ];							/* VARIABLE NAMES */
+static EXT_RAM_ATTR int	sub[VARS][LOCS+2];							/* N,LOCAL VAR INDEXES */
+static EXT_RAM_ATTR uint8_t	mode[VARS];								/* 0=NONE, 1=DIM, 2=SUB*/
+Val	ret;															/* FUNCTION RETURN VALUE */
+static EXT_RAM_ATTR int	cstk[STKSZ];								/* COMPILER STACK */
+int *csp;															/* COMPILER STACK POINTER */
+int	nvar,cursub,temp,compile,ipc,(**opc)(); 						/* COMPILER STATE */
+int globalerror;													/* GLOBAL ERROR */
+static EXT_RAM_ATTR char stab[STRSZ];   							/* STRING TABLE */
+char *stabp;														/* STRING TABLE POINTER*/
 #define A	sp[1]								/* LEFT OPERAND */
 #define B	sp[0]								/* RIGHT OPERAND */
 #define PCV	((Val)*pc++)						/* GET IMMEDIATE */

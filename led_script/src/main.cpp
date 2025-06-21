@@ -16,6 +16,9 @@
 #include "main.h"
 
 
+#include "esp_heap_caps.h"
+#include "esp_attr.h"  // Include necessary header file
+static EXT_RAM_ATTR uint8_t buf[1000000];
 
 /*
 Shell Commands
