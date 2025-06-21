@@ -42,7 +42,8 @@ char	*kwd[]={ (char*)"AND",(char*)"OR",(char*)"FORMAT",(char*)"SUB",(char*)"END"
 static EXT_RAM_ATTR char lbuf[256],tokn[SYMSZ];		 				/* LEXER STATE */
 char *lp;															/* LEXER POINTER */
 int	lnum,tok,tokv,ungot;											/* LEXER STATE */
-static EXT_RAM_ATTR int	(*prg[PRGSZ])(),(**pc)(),lmap[PRGSZ]; 		/* COMPILED PROGRAM */
+static EXT_RAM_ATTR int	(*prg[PRGSZ])(),(**pc)();			 		/* COMPILED PROGRAM */
+static EXT_RAM_ATTR int	lmap[PRGSZ]; 								/* LINKER MAP*/
 int cpc;															/* COMPILED PROGRAM POINTER */
 static EXT_RAM_ATTR Val	stk[STKSZ];									/* RUN-TIME STACK */
 Val *sp;															/* STACK POINTER */

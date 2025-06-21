@@ -270,10 +270,6 @@ void latlon_to_meters(float latitude_deg, float longitude_deg,
     *x_offset_meters = EARTH_RADIUS_METERS * cos(lat_rad) * (M_PI / 180.0) * longitude_deg;
 }
 
-
-#define DEG_TO_RAD (PI / 180.0f)
-#define RAD_TO_DEG (180.0f / PI)
-
 // Structure to hold result
 typedef struct {
     float distance;   // Distance in meters
