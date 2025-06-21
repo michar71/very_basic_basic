@@ -29,7 +29,6 @@ void registerhook();
 #define VARMODE_NONE 0
 #define VARMODE_DIM 1
 #define VARMODE_SUB 2
-#define VARMODE_FLOAT 3  //Future extension. Lots of open questions how that wouldwork in subroutines and arrays and functions...
 
 typedef ptrdiff_t	Val;	/* SIGNED INT/POINTER */
 typedef int		(*Code)();	/* BYTE-CODE */

@@ -344,6 +344,20 @@ void color_leds(CRGB col)
     FastLED.show();
 }
 
+
+int8_t location_cb(float* pOrg_lat,float* pOrg_long,float* pLat,float* pLong,float* pAlt,float* pSpeed,float* pDir)
+{
+  *pOrg_lat = 20.0;
+  *pOrg_long = 20.0;
+  *pLat = 20.001;
+  *pLong = 20.001;
+  *pAlt = 100;
+  *pSpeed = 7;
+  *pDir = 128;
+
+  return 0;
+}
+
 /*
 Main Code
 */
@@ -380,10 +394,13 @@ void setup()
     shell.addCommand(F("del"), delFile);
     shell.addCommand(F("load"), loadFile);        
     
-    if (!FSLINK.begin(FORMAT_SPIFFS_IF_FAILED)) 
+    if (!FSLINK.begin(true)) 
     {
         Serial.println("SPIFFS Mount Failed");
     }
+
+    //Register basic callbacks
+    register_location_callback(location_cb);
 
     Serial.println("Ready.");
     blink_leds(CRGB::Green);

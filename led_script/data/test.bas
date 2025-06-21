@@ -18,6 +18,9 @@ Y=	200						# ...
 Z=	300						# ...
 SUBR	1,2,3				# CALL SUBROUTINE
 FORMAT	"X,Y,Z,N: %,%,%,%", X,Y,Z,N			# CHECK RESTORED
+
+FORMAT	"VERSION: %", VERSION()	# CALL FUNCTION
+
 L = F(120,80)			            # CALL FUNCTION
 FORMAT	"F(100,200): %", F(100,L)	# CALL FUNCTION
 

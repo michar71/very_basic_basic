@@ -5,6 +5,8 @@
 #include "main.h"
 #include <math.h>
 
+#define VERSION 1
+
 /*
 Functions:
 =========
@@ -25,6 +27,7 @@ DONE WAIT (int ms)
 LOCKTIME()        -> Stores the current time 
 WAITIME(ms)       -> x mS minus the time that has passed since LOCKTIME was called. This allows to have consistent timing/delays even if scripts take some (even variable) time to execute for each frame.
 DONE int RANDOM(int min, int max)
+DONE int VERSION()  -> Retrun basic version number
 
 Hardware:
 uint8 READANALOG(int ch)
@@ -55,36 +58,56 @@ LUTs:
 There is 1 LUT in thre system. (Fast Acceess, dynamically allocated/released memory). But LUTs can be copied to/from arrays (Which are slow and eat up basic ressources...).
 
 DONE int LOADLUT(index) -> Loads a lut form filesystem. (LUT_[index].csv so for example LUT_1.csv for index 1). Returns the number of entries or zero if failed. 
-DONE int SAVELUT(index) -> Saves ther LUT to the filesystem. (LUT_[index].csv so for example LUT_1.csv for index 1). Returns 1 on success, 0 on failure
+DONE int SAVELUT(index) -> Saves the LUT to the filesystem. (LUT_[index].csv so for example LUT_1.csv for index 1). Returns 1 on success, 0 on failure
 DONE int LUTSIZE(index) -> Returns the size of the LUT in entries or 0 if it does not exist. Actually openes the file and reades it byte by byte to find commas unless its the current index lut already loaded so this can be used to DIM an array.
 DONE int LUTTOARRAY(array) -> Copies LUT to array. If LUT is larger then array it gets truncated, if bigger its filled with zeros. Returns numbers of entries.
 DONE int ARRAYTOLUT(array) -> Copies array to LUT. 
 DONE int LUT(int)  -> Returns the value of the LUT at index. If no LUT is loaded it will return 0. If the index is larger then the LUT size it will return 0.
 
 Location Based Functions. All Distances in meters, angles in Degrees:
-int HASORIGIN(0)   //Origin Data is avaliable
-int HASGPS(0) //Spped/Dir are avialable
-int ORIGINXDIST(0)
-int ORIGINYDIST(0)
-int ORIGINDIST(0)
-int ORIGINANGLE(0)
-int GPSSPEED(0)    //in m/s
-int GPSDIR(0) Angle
+int HASORIGIN()   //Origin Data is avaliable
+int HASGPS() //Spped/Dir are avialable
+int ORIGINDIST()
+int ORIGINANGLE()
+int GPSSPEED()   //in m/s
+int GPSDIR()     //Angle in deg
+int GPSALT()     //Altitude in m
+int DIST(int X1, int Y1, int X2, int Y2)
+int ANGLE(int X1, int Y1, int X2, int Y2)
 
-IMU Basaed Functions:
-int HASGYRO(0) //IMU Data is avaliable
-int HASACC(0) //IMU Data is avaliable
-int HASMAG(0)  
-int PITCH(0) //Pitch in degrees
-int ROLL(0) //Roll in degrees
-int YAW(0) //Yaw in degrees
-int ACCX(0) //Accelerometer X in m/s^2
-int ACCY(0) //Accelerometer Y in m/s^2
-int ACCZ(0) //Accelerometer Z in m/s^2
-int MAGDIR(0) //Magnetometer Direction in degrees 
+IMU based Functions:
+int HASGYRO() //IMU Data is avaliable
+int HASACC() //IMU Data is avaliable
+int HASMAG()  
+int PITCH() //Pitch in degrees
+int ROLL() //Roll in degrees
+int YAW() //Yaw in degrees
+int ACCX() //Accelerometer X in m/s^2
+int ACCY() //Accelerometer Y in m/s^2
+int ACCZ() //Accelerometer Z in m/s^2
 
 */
+//Function-Callbacks
 
+//Location function [float pointers to return org_lat,org_long,lat,long,alt,speed,dir]
+//Return Values:
+//-2 = Data Format error
+//-1 = No Sat Link
+//0 = No Valid Data
+// 1= Valid data
+typedef int8_t (*CallbackLocationFunction)(float*,float*,float*,float*,float*,float*,float*);
+CallbackLocationFunction Loc_Func = NULL;
+
+
+//IMU Function [float pointer to retrun Roll, Pitch, Yaw, AccX, AccY, AccZ]
+//Retrun Values:
+//-1= IMU Comm error
+//0 = No vlaid Data
+//1 = Valid Data
+typedef int8_t (*CallbackIMUFunction)(float*,float*,float*,float*,float*,float*);
+CallbackIMUFunction IMU_Func = NULL;
+
+//Gamma-Table LUT
 const uint8_t  gamma8[] = {
 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1,
@@ -138,6 +161,27 @@ const uint8_t  gamma8[] = {
 #define LUTTOARRAY_T "LUTTOARRAY"
 #define ARRAYTOLUT_T "ARRAYTOLUT"
 #define LUT_T "LUT"
+
+#define HASORIGIN_T "HASORIGIN"
+#define HASGPS_T "HASGPS"
+#define ORIGINDIST_T "ORIGINDIST"
+#define ORIGINANGLE_T "ORIGINANGLE"
+#define GPSSPEED_T "GPSSPEED"
+#define GPSDIR_T "GPSDIR"
+#define DIST_T "DIST"
+#define ANGLE_T "ANGLE"
+
+#define HASGYRO_T "HASGYRO"
+#define HASACC_T "HASACC"
+#define HASMAG_T "HASMAG"
+#define PITCH_T "PITCH"
+#define ROLL_T "ROLL"
+#define YAW_T "YAW"
+#define ACCX_T "ACCX"
+#define ACCY_T "ACCY"
+#define ACCZ_T "ACCZ"
+
+#define VERSION_T "VERSION"
 
 //-------------------------------------
 //Real HW dependecies.... We can ifdef this with stubs or PC functions for testing on other platform
@@ -204,6 +248,90 @@ unsigned long getTimestamp()
     return 0; //Return the current timestamp in milliseconds
 }
 #endif
+
+//------------------------
+//Location-based Functions
+//------------------------
+
+#define EARTH_RADIUS_METERS 6378137.0
+
+// Converts latitude and longitude (in degrees) into x/y offsets (in meters)
+// from the Equator and Prime Meridian.
+// x = east-west offset (longitude), y = north-south offset (latitude)
+void latlon_to_meters(float latitude_deg, float longitude_deg,
+                      float *x_offset_meters, float *y_offset_meters) {
+    // Convert latitude to radians for cosine calculation
+    double lat_rad = latitude_deg * (M_PI / 180.0);
+
+    // North-south offset from equator (meters)
+    *y_offset_meters = EARTH_RADIUS_METERS * (M_PI / 180.0) * latitude_deg;
+
+    // East-west offset from Prime Meridian (meters), adjusted by latitude
+    *x_offset_meters = EARTH_RADIUS_METERS * cos(lat_rad) * (M_PI / 180.0) * longitude_deg;
+}
+
+
+#define DEG_TO_RAD (PI / 180.0f)
+#define RAD_TO_DEG (180.0f / PI)
+
+// Structure to hold result
+typedef struct {
+    float distance;   // Distance in meters
+    float bearing_deg;  // Bearing in degrees
+} GeoResult;
+
+
+//For large distsnces this is the correct formula
+GeoResult calculate_geo(float lat1, float lon1, float lat2, float lon2) {
+    GeoResult result;
+
+    // Convert degrees to radians
+    float lat1_rad = lat1 * DEG_TO_RAD;
+    float lat2_rad = lat2 * DEG_TO_RAD;
+    float delta_lat = (lat2 - lat1) * DEG_TO_RAD;
+    float delta_lon = (lon2 - lon1) * DEG_TO_RAD;
+
+    // Haversine formula for distance
+    float a = sinf(delta_lat / 2.0f) * sinf(delta_lat / 2.0f) +
+              cosf(lat1_rad) * cosf(lat2_rad) *
+              sinf(delta_lon / 2.0f) * sinf(delta_lon / 2.0f);
+    float c = 2.0f * atanf(sqrtf(a) / sqrtf(1.0f - a));
+    result.distance = EARTH_RADIUS_METERS * c;
+
+    // Formula for initial bearing
+    float y = sinf(delta_lon) * cosf(lat2_rad);
+    float x = cosf(lat1_rad) * sinf(lat2_rad) -
+              sinf(lat1_rad) * cosf(lat2_rad) * cosf(delta_lon);
+    float bearing_rad = atan2f(y, x);
+    float bearing_deg = bearing_rad * RAD_TO_DEG;
+
+    // Normalize to 0–360
+    if (bearing_deg < 0.0f) {
+        bearing_deg += 360.0f;
+    }
+    result.bearing_deg = bearing_deg;
+
+    return result;
+}
+
+//For small distances or flat-earthers this is totally fine (Ignoring that earth is a sphere)
+GeoResult xy_to_polar(float x1, float y1, float x2, float y2) {
+    GeoResult result;
+
+    float dx = x2 - x1;
+    float dy = y2 - y1;
+
+    result.distance = sqrtf(dx * dx + dy * dy);
+    float angle_rad = atan2f(dy, dx);
+    float angle_deg = angle_rad * (180.0f / 3.14159265f);
+
+    // Normalize to 0–360 degrees
+    if (angle_deg < 0.0f)
+        angle_deg += 360.0f;
+
+    result.bearing_deg = angle_deg;
+    return result;
+}
 //-------------------------------------
 //LUTs
 //-------------------------------------
@@ -502,6 +630,13 @@ int kwdhook_(char *msg)
 		return 0;
 }
 
+
+int VERSION_() 
+{ 
+    *sp=VERSION; //Push back to to the stack
+    STEP;
+}
+
 int ABS_() 
 { 
     int val = *sp;  //Pull value from Stack and rewind stack
@@ -530,10 +665,6 @@ int WAIT_()
 
 int GETMAXLED_()
 {
-    int val = *sp;  //Pull value from Stack (We don't need it but functions need to pass at least one param?)
-    if (val<0)
-        val = 0;
-    
     *sp=getNumLeds(); //Push back to to the stack
     STEP;
 }
@@ -975,6 +1106,280 @@ int TIMESTAMP_()
     STEP;
 }
 
+int HASORIGIN_()
+{
+    if (NULL == Loc_Func)
+    {
+        *sp=0; //Push back to to the stack
+        STEP;
+    }
+    else
+    {
+        float oLat = 0;
+        float oLon = 0;
+        float lat = 0;
+        float lon = 0;
+        float alt = 0;
+        float speed = 0;
+        float dir = 0;
+
+        int8_t res = Loc_Func(&oLat,&oLon,&lat,&lon,&alt,&speed,&dir);
+        if (((oLat == 0) && (oLon == 0)) || (res != 1))
+        {
+            *sp=0; //Push back to to the stack
+            STEP;
+        }
+    }
+    *sp=1; //Push back to to the stack
+    STEP;
+}
+
+int HASGPS_()
+{
+    if (NULL == Loc_Func)
+    {
+        *sp=0; //Push back to to the stack
+        STEP;
+    }
+    else
+    {
+        float oLat = 0;
+        float oLon = 0;
+        float lat = 0;
+        float lon = 0;
+        float alt = 0;
+        float speed = 0;
+        float dir = 0;
+
+        int8_t res = Loc_Func(&oLat,&oLon,&lat,&lon,&alt,&speed,&dir);
+        if (((lat == 0) && (lon == 0)) || (res != 1))
+        {
+            *sp=0; //Push back to to the stack
+            STEP;
+        }
+    }
+    *sp=1; //Push back to to the stack
+    STEP;
+}
+
+int ORIGINDIST_()
+{
+    if (NULL == Loc_Func)
+    {
+        *sp=0; //Push back to to the stack
+        STEP;        
+    }
+
+    float oLat = 0;
+    float oLon = 0;
+    float lat = 0;
+    float lon = 0;
+    float alt = 0;
+    float speed = 0;
+    float dir = 0;
+
+    int8_t res = Loc_Func(&oLat,&oLon,&lat,&lon,&alt,&speed,&dir);
+    if (res != 1)
+    {
+        *sp=0; //Push back to to the stack
+        STEP;
+    } 
+
+    float xom1 = 0;
+    float yom1 = 0;
+    latlon_to_meters(oLat, oLon, &xom1,  &yom1);
+    float xom2 = 0;
+    float yom2 = 0;
+    latlon_to_meters(lat, lon, &xom2,  &yom2);
+    GeoResult gr = xy_to_polar(xom1, yom1, xom2, yom2); 
+
+    *sp=(int)round(gr.distance); //Push back to to the stack
+    STEP;  
+}
+
+int ORIGINANGLE_()
+{
+    if (NULL == Loc_Func)
+    {
+        *sp=0; //Push back to to the stack
+        STEP;        
+    }
+
+    float oLat = 0;
+    float oLon = 0;
+    float lat = 0;
+    float lon = 0;
+    float alt = 0;
+    float speed = 0;
+    float dir = 0;
+
+    int8_t res = Loc_Func(&oLat,&oLon,&lat,&lon,&alt,&speed,&dir);
+    if (res != 1)
+    {
+        *sp=0; //Push back to to the stack
+        STEP;
+    } 
+
+    float xom1 = 0;
+    float yom1 = 0;
+    latlon_to_meters(oLat, oLon, &xom1,  &yom1);
+    float xom2 = 0;
+    float yom2 = 0;
+    latlon_to_meters(lat, lon, &xom2,  &yom2);
+    GeoResult gr = xy_to_polar(xom1, yom1, xom2, yom2); 
+
+    *sp=(int)round(gr.bearing_deg); //Push back to to the stack
+    STEP;  
+}
+
+int GPSSPEED_()
+{
+    if (NULL == Loc_Func)
+    {
+        *sp=0; //Push back to to the stack
+        STEP;        
+    }
+
+    float oLat = 0;
+    float oLon = 0;
+    float lat = 0;
+    float lon = 0;
+    float alt = 0;
+    float speed = 0;
+    float dir = 0;
+
+    int8_t res = Loc_Func(&oLat,&oLon,&lat,&lon,&alt,&speed,&dir);
+    if (res != 1)
+    {
+        *sp=0; //Push back to to the stack
+        STEP;
+    } 
+    *sp=(int)round(speed); //Push back to to the stack
+    STEP; 
+}
+
+int GPSDIR_()
+{
+    if (NULL == Loc_Func)
+    {
+        *sp=0; //Push back to to the stack
+        STEP;        
+    }
+
+    float oLat = 0;
+    float oLon = 0;
+    float lat = 0;
+    float lon = 0;
+    float alt = 0;
+    float speed = 0;
+    float dir = 0;
+
+    int8_t res = Loc_Func(&oLat,&oLon,&lat,&lon,&alt,&speed,&dir);
+    if (res != 1)
+    {
+        *sp=0; //Push back to to the stack
+        STEP;
+    } 
+    *sp=(int)round(dir); //Push back to to the stack
+    STEP; 
+}
+
+int GPSALT_()
+{
+    if (NULL == Loc_Func)
+    {
+        *sp=0; //Push back to to the stack
+        STEP;        
+    }
+
+    float oLat = 0;
+    float oLon = 0;
+    float lat = 0;
+    float lon = 0;
+    float alt = 0;
+    float speed = 0;
+    float dir = 0;
+
+    int8_t res = Loc_Func(&oLat,&oLon,&lat,&lon,&alt,&speed,&dir);
+    if (res != 1)
+    {
+        *sp=0; //Push back to to the stack
+        STEP;
+    } 
+    *sp=(int)round(alt); //Push back to to the stack
+    STEP; 
+}
+
+int DIST_ ()
+{
+    int Y2 = (int)*sp++;
+    int X2 = (int)*sp++;
+    int Y1 = (int)*sp++;    
+    int X1 = (int)*sp;  //Pull value from Stack and rewind stack
+    GeoResult res = xy_to_polar(X1,Y1,X2,Y2);
+ 
+    *sp=(int)round(res.distance); //Push back to to the stack
+    STEP;
+}
+
+int ANGLE_ ()
+{
+    int Y2 = (int)*sp++;
+    int X2 = (int)*sp++;
+    int Y1 = (int)*sp++;    
+    int X1 = (int)*sp;  //Pull value from Stack and rewind stack
+    GeoResult res = xy_to_polar(X1,Y1,X2,Y2);
+ 
+    *sp=(int)round(res.bearing_deg); //Push back to to the stack
+    STEP;
+}
+
+int HASGYRO_()
+{
+
+}
+
+int HASACC_()
+{
+
+}
+
+int HASMAG_()
+{
+
+}
+
+int PITCH_()
+{
+
+}
+
+int ROLL_()
+{
+
+}
+
+int YAW_()
+{
+
+}
+
+int ACCX_()
+{
+
+}
+
+int ACCY_()
+{
+
+}
+
+int ACCZ_()
+{
+
+}
+
+
 //Hmmm... so we get the name of the function and the number of arguments.
 //Validate here if the number of arguments is correct and then push the function to the progam buffer.
 //In the function we pull the arguments off the dstasck and put the result back on the stack.
@@ -1063,9 +1468,9 @@ int funhook_(char *msg, int n)
     }              
 	if (!strcmp(msg,GETMAXLED_T))
     {
-        if (n!=1) 
+        if (n!=0) 
         {
-            bad((char*)"GETMAXLED: 1 ARGUMENT REQUIRED");
+            bad((char*)"GETMAXLED: NO ARGUMENT REQUIRED");
             return 0;
         }        
 		emit(GETMAXLED_);STEP;
@@ -1213,7 +1618,170 @@ int funhook_(char *msg, int n)
             return 0;
         }
         emit(GAMMA256_);STEP;
-    }        
+    }    
+    if (!strcmp(msg,HASORIGIN_T))
+    {
+        if (n!=0) 
+        {
+            bad((char*)"HASORIGIN: NO ARGUMENTS REQUIRED");
+            return 0;
+        }
+        emit(HASORIGIN_);STEP;
+    }   
+    if (!strcmp(msg,HASGPS_T))
+    {
+        if (n!=0) 
+        {
+            bad((char*)"HASGPS: NO ARGUMENTS REQUIRED");
+            return 0;
+        }
+        emit(HASGPS_);STEP;
+    }   
+    if (!strcmp(msg,ORIGINDIST_T))
+    {
+        if (n!=0) 
+        {
+            bad((char*)"ORIGINDIST: NO ARGUMENTS REQUIRED");
+            return 0;
+        }
+        emit(ORIGINDIST_);STEP;
+    }       
+    if (!strcmp(msg,ORIGINANGLE_T))
+    {
+        if (n!=0) 
+        {
+            bad((char*)"ORIGINANGLE: NO ARGUMENTS REQUIRED");
+            return 0;
+        }
+        emit(ORIGINANGLE_);STEP;
+    }   
+    if (!strcmp(msg,GPSSPEED_T))
+    {
+        if (n!=0) 
+        {
+            bad((char*)"GPSSPEED: NO ARGUMENTS REQUIRED");
+            return 0;
+        }
+        emit(GPSSPEED_);STEP;
+    }  
+    if (!strcmp(msg,GPSDIR_T))
+    {
+        if (n!=0) 
+        {
+            bad((char*)"GPSDIR: NO ARGUMENTS REQUIRED");
+            return 0;
+        }
+        emit(GPSDIR_);STEP;
+    }             
+    if (!strcmp(msg,DIST_T))
+    {
+        if (n!=4) 
+        {
+            bad((char*)"DIST: 4 ARGUMENTS REQUIRED");
+            return 0;
+        }
+        emit(DIST_);STEP;
+    }    
+    if (!strcmp(msg,ANGLE_T))
+    {
+        if (n!=4) 
+        {
+            bad((char*)"ANGLE: 4 ARGUMENTS REQUIRED");
+            return 0;
+        }
+        emit(ANGLE_);STEP;
+    }  
+    if (!strcmp(msg,HASGYRO_T))
+    {
+        if (n!=0) 
+        {
+            bad((char*)"HASGYRO: NO ARGUMENTS REQUIRED");
+            return 0;
+        }
+        emit(HASGYRO_);STEP;
+    }  
+    if (!strcmp(msg,HASACC_T))
+    {
+        if (n!=0) 
+        {
+            bad((char*)"HASACC: NO ARGUMENTS REQUIRED");
+            return 0;
+        }
+        emit(HASACC_);STEP;
+    }  
+    if (!strcmp(msg,HASMAG_T))
+    {
+        if (n!=0) 
+        {
+            bad((char*)"HASMAG: NO ARGUMENTS REQUIRED");
+            return 0;
+        }
+        emit(HASMAG_);STEP;
+    }      
+    if (!strcmp(msg,ROLL_T))
+    {
+        if (n!=0) 
+        {
+            bad((char*)"ROLL: NO ARGUMENTS REQUIRED");
+            return 0;
+        }
+        emit(ROLL_);STEP;
+    }  
+    if (!strcmp(msg,PITCH_T))
+    {
+        if (n!=0) 
+        {
+            bad((char*)"PITCH: NO ARGUMENTS REQUIRED");
+            return 0;
+        }
+        emit(PITCH_);STEP;
+    }  
+    if (!strcmp(msg,YAW_T))
+    {
+        if (n!=0) 
+        {
+            bad((char*)"YAW: NO ARGUMENTS REQUIRED");
+            return 0;
+        }
+        emit(YAW_);STEP;
+    }          
+    if (!strcmp(msg,ACCX_T))
+    {
+        if (n!=0) 
+        {
+            bad((char*)"ACCX: NO ARGUMENTS REQUIRED");
+            return 0;
+        }
+        emit(ACCX_);STEP;
+    }  
+    if (!strcmp(msg,ACCY_T))
+    {
+        if (n!=0) 
+        {
+            bad((char*)"ACCY: NO ARGUMENTS REQUIRED");
+            return 0;
+        }
+        emit(ACCY_);STEP;
+    }    
+    if (!strcmp(msg,ACCZ_T))
+    {
+        if (n!=0) 
+        {
+            bad((char*)"ACCZ: NO ARGUMENTS REQUIRED");
+            return 0;
+        }
+        emit(ACCZ_);STEP;
+    }      
+    if (!strcmp(msg,VERSION_T))
+    {
+        if (n!=0) 
+        {
+            bad((char*)"VERSION: NO ARGUMENTS REQUIRED");
+            return 0;
+        }
+        emit(VERSION_);STEP;
+    }   
+    
     //If we reach here we did not find a matching function                   
     else	
 		return 0;
@@ -1226,19 +1794,22 @@ void registerhook()
     funhook=funhook_;
 }
 
-//Location Callback provides potentially Latitude, Longitude, Altitude, Speed, Course
-void register_location_callback()
+
+//Location Callback provides potentially Origin Latitude, Orgin Longitude, Latitude, Longitude, Altitude, Speed, Course
+void register_location_callback(CallbackLocationFunction func)
 {
     //This is called by the main program to register the location callback
     //We don't need to do anything here as we don't have a location callback
+    Loc_Func = func;
 }
 
 
-//IMU Callback provides potentially Roll, Pitch, Yaw, AccX, AccY, AccZ, MagDir 
-void register_imu_callback()
+//IMU Callback provides potentially Roll, Pitch, Yaw, AccX, AccY, AccZ,  
+void register_imu_callback(CallbackIMUFunction func)
 {
     //This is called by the main program to register the IMU callback
     //We don't need to do anything here as we don't have an IMU callback
+    IMU_Func = func;    
 }
 
 #endif
