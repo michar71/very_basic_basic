@@ -76,9 +76,9 @@ int DIST(int X1, int Y1, int X2, int Y2)
 int ANGLE(int X1, int Y1, int X2, int Y2)
 
 IMU based Functions:
-int HASGYRO() //IMU Data is avaliable
-int HASACC() //IMU Data is avaliable
-int HASMAG()  
+int HASGYRO() //IMU Gyro Data is avaliable
+int HASACC() //IMU Acc Data is avaliable
+int HASMAG()  //IMU Mag data is avialable
 int PITCH() //Pitch in degrees
 int ROLL() //Roll in degrees
 int YAW() //Yaw in degrees
@@ -99,13 +99,23 @@ typedef int8_t (*CallbackLocationFunction)(float*,float*,float*,float*,float*,fl
 CallbackLocationFunction Loc_Func = NULL;
 
 
-//IMU Function [float pointer to retrun Roll, Pitch, Yaw, AccX, AccY, AccZ]
-//Retrun Values:
+//IMU Function [float pointer to return Roll, Pitch, Yaw, AccX, AccY, AccZ]
+//It is assumed that the IMU processing uses its own sensor fusion to determine 
+//best possible solution for R/P/Y including filtering and all the other fasncy processing solutions.
+//Return Values:
 //-1= IMU Comm error
-//0 = No vlaid Data
-//1 = Valid Data
+//0 = No valid Data
+//>0 Valid Data
+//The lower 3 bit determine what features are available:
+//Bit 0 = Gyro
+//Bit 1 = Acc
+//Bit 2 = Mag
+//So a return value of 5 means Gyro and Mag datas are available 
 typedef int8_t (*CallbackIMUFunction)(float*,float*,float*,float*,float*,float*);
 CallbackIMUFunction IMU_Func = NULL;
+#define GYRO_BIT 0x01
+#define ACC_BIT 0x02
+#define MAG_BIT 0x04
 
 //Gamma-Table LUT
 const uint8_t  gamma8[] = {
@@ -1332,47 +1342,245 @@ int ANGLE_ ()
 
 int HASGYRO_()
 {
+    if (NULL == IMU_Func)
+    {
+        *sp=0; //Push back to to the stack
+        STEP;
+    }
+    else
+    {
+        float roll = 0;
+        float pitch = 0;
+        float yaw = 0;
+        float accX = 0;
+        float accY = 0;
+        float accZ = 0;
 
+        int8_t res = IMU_Func(&roll,&pitch,&yaw,&accX,&accY,&accZ);
+        if ((res & GYRO_BIT) == 0)
+        {
+            *sp=0; //Push back to to the stack
+            STEP;
+        }
+    }
+    *sp=1; //Push back to to the stack
+    STEP;
 }
 
 int HASACC_()
 {
+    if (NULL == IMU_Func)
+    {
+        *sp=0; //Push back to to the stack
+        STEP;
+    }
+    else
+    {
+        float roll = 0;
+        float pitch = 0;
+        float yaw = 0;
+        float accX = 0;
+        float accY = 0;
+        float accZ = 0;
 
+        int8_t res = IMU_Func(&roll,&pitch,&yaw,&accX,&accY,&accZ);
+        if ((res & ACC_BIT) == 0)
+        {
+            *sp=0; //Push back to to the stack
+            STEP;
+        }
+    }
+    *sp=1; //Push back to to the stack
+    STEP;
 }
 
 int HASMAG_()
 {
+    if (NULL == IMU_Func)
+    {
+        *sp=0; //Push back to to the stack
+        STEP;
+    }
+    else
+    {
+        float roll = 0;
+        float pitch = 0;
+        float yaw = 0;
+        float accX = 0;
+        float accY = 0;
+        float accZ = 0;
 
+        int8_t res = IMU_Func(&roll,&pitch,&yaw,&accX,&accY,&accZ);
+        if ((res & MAG_BIT) == 0)
+        {
+            *sp=0; //Push back to to the stack
+            STEP;
+        }
+    }
+    *sp=1; //Push back to to the stack
+    STEP;
 }
 
 int PITCH_()
 {
+    if (NULL == IMU_Func)
+    {
+        *sp=0; //Push back to to the stack
+        STEP;
+    }
+    else
+    {
+        float roll = 0;
+        float pitch = 0;
+        float yaw = 0;
+        float accX = 0;
+        float accY = 0;
+        float accZ = 0;
 
+        int8_t res = IMU_Func(&roll,&pitch,&yaw,&accX,&accY,&accZ);
+        if (res < 0)
+        {
+            *sp=0; //Push back to to the stack
+            STEP;
+        }
+        *sp=pitch; //Push back to to the stack
+        STEP;
+    }
 }
 
 int ROLL_()
 {
+    if (NULL == IMU_Func)
+    {
+        *sp=0; //Push back to to the stack
+        STEP;
+    }
+    else
+    {
+        float roll = 0;
+        float pitch = 0;
+        float yaw = 0;
+        float accX = 0;
+        float accY = 0;
+        float accZ = 0;
 
+        int8_t res = IMU_Func(&roll,&pitch,&yaw,&accX,&accY,&accZ);
+        if (res < 0)
+        {
+            *sp=0; //Push back to to the stack
+            STEP;
+        }
+        *sp=roll; //Push back to to the stack
+        STEP;
+    }
 }
 
 int YAW_()
 {
+    if (NULL == IMU_Func)
+    {
+        *sp=0; //Push back to to the stack
+        STEP;
+    }
+    else
+    {
+        float roll = 0;
+        float pitch = 0;
+        float yaw = 0;
+        float accX = 0;
+        float accY = 0;
+        float accZ = 0;
 
+        int8_t res = IMU_Func(&roll,&pitch,&yaw,&accX,&accY,&accZ);
+        if (res < 0)
+        {
+            *sp=0; //Push back to to the stack
+            STEP;
+        }
+        *sp=yaw; //Push back to to the stack
+        STEP;
+    }
 }
 
 int ACCX_()
 {
+    if (NULL == IMU_Func)
+    {
+        *sp=0; //Push back to to the stack
+        STEP;
+    }
+    else
+    {
+        float roll = 0;
+        float pitch = 0;
+        float yaw = 0;
+        float accX = 0;
+        float accY = 0;
+        float accZ = 0;
 
+        int8_t res = IMU_Func(&roll,&pitch,&yaw,&accX,&accY,&accZ);
+        if (res < 0)
+        {
+            *sp=0; //Push back to to the stack
+            STEP;
+        }
+        *sp=accX; //Push back to to the stack
+        STEP;
+    }
 }
 
 int ACCY_()
 {
+    if (NULL == IMU_Func)
+    {
+        *sp=0; //Push back to to the stack
+        STEP;
+    }
+    else
+    {
+        float roll = 0;
+        float pitch = 0;
+        float yaw = 0;
+        float accX = 0;
+        float accY = 0;
+        float accZ = 0;
 
+        int8_t res = IMU_Func(&roll,&pitch,&yaw,&accX,&accY,&accZ);
+        if (res < 0)
+        {
+            *sp=0; //Push back to to the stack
+            STEP;
+        }
+        *sp=accY; //Push back to to the stack
+        STEP;
+    }
 }
 
 int ACCZ_()
 {
+    if (NULL == IMU_Func)
+    {
+        *sp=0; //Push back to to the stack
+        STEP;
+    }
+    else
+    {
+        float roll = 0;
+        float pitch = 0;
+        float yaw = 0;
+        float accX = 0;
+        float accY = 0;
+        float accZ = 0;
 
+        int8_t res = IMU_Func(&roll,&pitch,&yaw,&accX,&accY,&accZ);
+        if (res < 0)
+        {
+            *sp=0; //Push back to to the stack
+            STEP;
+        }
+        *sp=accY; //Push back to to the stack
+        STEP;
+    }
 }
 
 

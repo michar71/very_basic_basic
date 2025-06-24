@@ -1,23 +1,16 @@
 #define REAL_ESP32_HW
-#define LITTLEFS
-
-
-#include <Arduino.h>
-#include "FS.h"
-#ifdef LITTLEFS
-#include <LittleFS.h>
-#define FSLINK LittleFS
-#else
-#include <SPIFFS.h>
-#define FSLINK SPIFFS
-#endif
-#include <SimpleSerialShell.h>
-#include "basic.h"
-#include "main.h"
 
 
 #include "esp_heap_caps.h"
 #include "esp_attr.h"  // Include necessary header file
+#include <Arduino.h>
+#include "FS.h"
+#include <LittleFS.h>
+#define FSLINK LittleFS
+#include <SimpleSerialShell.h>
+#include "basic.h"
+#include "main.h"
+
 /*
 Shell Commands
 
@@ -405,6 +398,7 @@ void setup()
 
     Serial.println("Ready.");
     blink_leds(CRGB::Green);
+
 }
 
 
