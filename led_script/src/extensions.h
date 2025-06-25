@@ -28,13 +28,51 @@ LOCKTIME()        -> Stores the current time
 WAITIME(ms)       -> x mS minus the time that has passed since LOCKTIME was called. This allows to have consistent timing/delays even if scripts take some (even variable) time to execute for each frame.
 DONE int RANDOM(int min, int max)
 DONE int VERSION()  -> Retrun basic version number
+int WAITFOR(int event , int cond, int val, int timeout)
+
+event = 0 -> Sync Pulse
+    cond = 0 = all sync pulses, 1 = specific sync pulse ID
+    val = 0 for all sync pulses or number ID of sync pulse to wait for
+    timeout -> Timeout in ms, 0 = wait forever
+    ret = 0 = timerout, 1 = event received
+
+
+event = 1 -> Digital Pin Change
+    cond = 0 = low to high, 1 = high to low
+    val = pin number
+    timeout = timeout in ms, 0 = wait forever
+
+    ret = 0 = timerout, 1 = event received    
+
+event = 2 -> Analog Pin Change from smaller then TH to larger then TH
+    cond = Threshold
+    val = pin number
+    timeout = timeout in ms, 0 = wait forever   
+
+    ret = 0 = timerout, 1 = event received
+
+event = 3 -> Analog Pin Change from larger then TH to smaller then TH
+    cond = Threshold
+    val = pin number
+    timeout = timeout in ms, 0 = wait forever   
+
+    ret = 0 = timerout, 1 = event received
+
+event = 3 -> wait for system timer to reach a specific value
+    cond = 0 = millisec, 1 = sec, 2 = min, 3 = hours
+    val = value to wait for
+    timeout = timeout in ms, 0 = wait forever   
+
+    ret = 0 = timerout, 1 = event received    
+
+
+
 
 Hardware:
 uint8 READANALOG(int ch)
 uint8 READPIN(int gpio)
 SETPIN(int gpio)
 CLEARPIN(int gpio)
-int CHECKEVENT(int event, int cond, int val)  -> Wait for "event" (Analog, Digital, Timer, Sync Pulse) to (cross low/high, cross high/low, larger, smaller, equal, happened) of value (abs. value, count)
 
 Color Space: 
 DONE HSVTORGBARRAY(array_h, array_s, array_v) -> Convert HSV values in an array to RGB values in an array
@@ -65,26 +103,26 @@ DONE int ARRAYTOLUT(array) -> Copies array to LUT.
 DONE int LUT(int)  -> Returns the value of the LUT at index. If no LUT is loaded it will return 0. If the index is larger then the LUT size it will return 0.
 
 Location Based Functions. All Distances in meters, angles in Degrees:
-int HASORIGIN()   //Origin Data is avaliable
-int HASGPS() //Spped/Dir are avialable
-int ORIGINDIST()
-int ORIGINANGLE()
-int GPSSPEED()   //in m/s
-int GPSDIR()     //Angle in deg
-int GPSALT()     //Altitude in m
-int DIST(int X1, int Y1, int X2, int Y2)
-int ANGLE(int X1, int Y1, int X2, int Y2)
+DONE int HASORIGIN()   //Origin Data is avaliable
+DONE int HASGPS() //Spped/Dir are avialable
+DONE int ORIGINDIST()
+DONE int ORIGINANGLE()
+DONE int GPSSPEED()   //in m/s
+DONE int GPSDIR()     //Angle in deg
+DONE int GPSALT()     //Altitude in m
+DONE int DIST(int X1, int Y1, int X2, int Y2)
+DONE int ANGLE(int X1, int Y1, int X2, int Y2)
 
 IMU based Functions:
-int HASGYRO() //IMU Gyro Data is avaliable
-int HASACC() //IMU Acc Data is avaliable
-int HASMAG()  //IMU Mag data is avialable
-int PITCH() //Pitch in degrees
-int ROLL() //Roll in degrees
-int YAW() //Yaw in degrees
-int ACCX() //Accelerometer X in m/s^2
-int ACCY() //Accelerometer Y in m/s^2
-int ACCZ() //Accelerometer Z in m/s^2
+DONE int HASGYRO() //IMU Gyro Data is avaliable
+DONE int HASACC() //IMU Acc Data is avaliable
+DONE int HASMAG()  //IMU Mag data is avialable
+DONE int PITCH() //Pitch in degrees
+DONE int ROLL() //Roll in degrees
+DONE int YAW() //Yaw in degrees
+DONE int ACCX() //Accelerometer X in m/s^2
+DONE int ACCY() //Accelerometer Y in m/s^2
+DONE int ACCZ() //Accelerometer Z in m/s^2
 
 */
 //Function-Callbacks
@@ -116,6 +154,24 @@ CallbackIMUFunction IMU_Func = NULL;
 #define GYRO_BIT 0x01
 #define ACC_BIT 0x02
 #define MAG_BIT 0x04
+
+
+//SYNC_function (int pulseID, int timeout_ms)
+//This function is called to wait for sync pulses.
+// pulseID = 0 for all sync pulses, 1 for sync pulse 1, 2 for sync pulse 2 etc.
+// timeout_ms = 0 for no timeout, >0 for timeout in ms
+//Return Values:
+//0 = Timeout
+//1 = Sync Pulse received
+typedef int8_t (*CallbackSYNCFunction)(int,int);
+CallbackSYNCFunction SYNC_Func = NULL;
+#define EVENT_PULSE 0
+#define EVENT_DIGITAL 1
+#define EVENT_ANALOG_UP 2
+#define EVENT_ANALOG_DOWN 3
+#define EVENT_TIMER 4
+
+
 
 //Gamma-Table LUT
 const uint8_t  gamma8[] = {
@@ -192,6 +248,7 @@ const uint8_t  gamma8[] = {
 #define ACCZ_T "ACCZ"
 
 #define VERSION_T "VERSION"
+#define WAITFOR_T "WAITFOR"
 
 //-------------------------------------
 //Real HW dependecies.... We can ifdef this with stubs or PC functions for testing on other platform
@@ -1584,7 +1641,43 @@ int ACCZ_()
 }
 
 
-//Hmmm... so we get the name of the function and the number of arguments.
+int WAITFOR_()
+{
+    int timeout = (int)*sp++;
+    int value = (int)*sp++;
+    int condition = (int)*sp++;    
+    int event = (int)*sp;  //Pull value from Stack and rewind stack
+
+    if (event == EVENT_PULSE)
+    {
+        if (SYNC_Func == NULL)
+        {
+            *sp=0; //Push back to to the stack
+            STEP;
+        }
+
+        uint8_t ret = SYNC_Func(value,timeout); //Call the sync function
+        if (ret == 0) //If we timed out
+        {
+            *sp=0; //Push back to to the stack
+            STEP;            
+        }
+        else
+        {
+            *sp=1; //Push back to to the stack
+            STEP; 
+        }
+    }
+    else
+    {
+        bad((char*)"WAITFOR: EVENT NOT SUPPORTED");
+        return 0;
+    }
+
+
+}
+
+//We get the name of the function and the number of arguments.
 //Validate here if the number of arguments is correct and then push the function to the progam buffer.
 //In the function we pull the arguments off the dstasck and put the result back on the stack.
 int funhook_(char *msg, int n) 
@@ -1985,7 +2078,15 @@ int funhook_(char *msg, int n)
         }
         emit(VERSION_);STEP;
     }   
-    
+    if (!strcmp(msg,WAITFOR_T))
+    {
+        if (n!=4) 
+        {
+            bad((char*)"WAITFOR: 4 ARGUMENTS REQUIRED");
+            return 0;
+        }
+        emit(WAITFOR_);STEP;
+    }  
     //If we reach here we did not find a matching function                   
     else	
 		return 0;
@@ -1999,21 +2100,23 @@ void registerhook()
 }
 
 
-//Location Callback provides potentially Origin Latitude, Orgin Longitude, Latitude, Longitude, Altitude, Speed, Course
+//Location Callback provides Origin Latitude, Orgin Longitude, Latitude, Longitude, Altitude, Speed, Course
 void register_location_callback(CallbackLocationFunction func)
 {
-    //This is called by the main program to register the location callback
-    //We don't need to do anything here as we don't have a location callback
     Loc_Func = func;
 }
 
 
-//IMU Callback provides potentially Roll, Pitch, Yaw, AccX, AccY, AccZ,  
+//IMU Callback provides Roll, Pitch, Yaw, AccX, AccY, AccZ,  
 void register_imu_callback(CallbackIMUFunction func)
 {
-    //This is called by the main program to register the IMU callback
-    //We don't need to do anything here as we don't have an IMU callback
     IMU_Func = func;    
+}
+
+//SYNC Callback provides external sync pulse syncronisation
+void register_sync_callback(CallbackSYNCFunction func)
+{
+    SYNC_Func = func;    
 }
 
 #endif
