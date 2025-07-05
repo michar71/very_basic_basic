@@ -7,6 +7,7 @@
 #include "FS.h"
 #include <LittleFS.h>
 #define FSLINK LittleFS
+#define PRINTLINK Serial
 #include <SimpleSerialShell.h>
 #include "basic.h"
 #include "main.h"

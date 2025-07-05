@@ -1,7 +1,6 @@
 #ifndef extensions_h
 #define extensions_h
 
-
 #include "main.h"
 #include <math.h>
 
@@ -66,8 +65,6 @@ event = 3 -> wait for system timer to reach a specific value
     ret = 0 = timerout, 1 = event received    
 
 
-
-
 Hardware:
 uint8 READANALOG(int ch)
 uint8 READPIN(int gpio)
@@ -124,6 +121,11 @@ DONE int ACCX() //Accelerometer X in m/s^2
 DONE int ACCY() //Accelerometer Y in m/s^2
 DONE int ACCZ() //Accelerometer Z in m/s^2
 
+environmental-sensor functions:
+DONE int TEMP() //returns temperature in Deg C*10 or -10000 if no temp sensor present 
+DONE int HUM() //returns humidity in % or -1 if no humidity sensor present
+DONE int LIGHT() //returns brightness beteen 0-4096 or -1 cif brightness senor does not exist
+
 */
 //Function-Callbacks
 
@@ -155,6 +157,15 @@ CallbackIMUFunction IMU_Func = NULL;
 #define ACC_BIT 0x02
 #define MAG_BIT 0x04
 
+//ENV Function [float pointers to return Temp [Deg C] ,Hum [%], Brightness [0...4096]
+//Return Values:
+//0 = No valid Data
+//>0 Valid Data
+//Return -10000 if no temp sensor
+//Return -1 if no Humidity Sensor
+//Return -1 if no brightness sensor
+typedef int8_t (*CallbackENVFunction)(float*,float*,float*);
+CallbackENVFunction ENV_Func = NULL;
 
 //SYNC_function (int pulseID, int timeout_ms)
 //This function is called to wait for sync pulses.
@@ -246,6 +257,10 @@ const uint8_t  gamma8[] = {
 #define ACCX_T "ACCX"
 #define ACCY_T "ACCY"
 #define ACCZ_T "ACCZ"
+
+#define TEMP_T "TEMP"
+#define HUM_T "HUM"
+#define BRIGHT_T "BRIGHT"
 
 #define VERSION_T "VERSION"
 #define WAITFOR_T "WAITFOR"
@@ -415,7 +430,7 @@ int checkLut(uint8_t index)
     File file = FSLINK.open(filename.c_str(), FILE_READ);
     if (!file)
     {
-        Serial.printf("LUT %d does not exists\n", index);
+        PRINTLINK.printf("LUT %d does not exists\n", index);
         return -1; //LUT does not exists
     }
     int count = 0;
@@ -429,7 +444,7 @@ int checkLut(uint8_t index)
     file.close();
     if (count == 0)
     {
-        Serial.printf("LUT %d is empty\n", index);
+        PRINTLINK.printf("LUT %d is empty\n", index);
         return 0; //LUT is empty
     }
     return count + 1; //Return number of elements
@@ -1640,6 +1655,85 @@ int ACCZ_()
     }
 }
 
+int TEMP_()
+{
+    if (NULL == ENV_Func)
+    {
+        *sp=0; //Push back to to the stack
+        STEP;
+    }
+    else
+    {
+        float temp = 0;
+        float hum = 0;
+        float bright = 0;
+
+        int8_t res = ENV_Func(&temp,&hum,&bright);
+        if (res < 0)
+        {
+            *sp=0; //Push back to to the stack
+            STEP;
+        }
+        if (temp <= -10000)
+        {
+            *sp=-10000; //Push back to to the stack
+            STEP;
+        }
+        else
+        {
+            *sp=(int)round(temp*10); //Push back to to the stack
+            STEP;
+        }
+    }
+}
+
+int HUM_()
+{
+    if (NULL == ENV_Func)
+    {
+        *sp=0; //Push back to to the stack
+        STEP;
+    }
+    else
+    {
+        float temp = 0;
+        float hum = 0;
+        float bright = 0;
+
+        int8_t res = ENV_Func(&temp,&hum,&bright);
+        if (res < 0)
+        {
+            *sp=0; //Push back to to the stack
+            STEP;
+        }
+        *sp=(int)round(hum); //Push back to to the stack
+        STEP;
+    }
+}
+
+int BRIGHT_()
+{
+    if (NULL == ENV_Func)
+    {
+        *sp=0; //Push back to to the stack
+        STEP;
+    }
+    else
+    {
+        float temp = 0;
+        float hum = 0;
+        float bright = 0;
+
+        int8_t res = ENV_Func(&temp,&hum,&bright);
+        if (res < 0)
+        {
+            *sp=0; //Push back to to the stack
+            STEP;
+        }
+        *sp=(int)round(bright); //Push back to to the stack
+        STEP;
+    }
+}
 
 int WAITFOR_()
 {
@@ -2069,6 +2163,33 @@ int funhook_(char *msg, int n)
         }
         emit(ACCZ_);STEP;
     }      
+    if (!strcmp(msg,TEMP_T))
+    {
+        if (n!=0) 
+        {
+            bad((char*)"TEMP: NO ARGUMENTS REQUIRED");
+            return 0;
+        }
+        emit(HUM_);STEP;
+    }        
+    if (!strcmp(msg,TEMP_T))
+    {
+        if (n!=0) 
+        {
+            bad((char*)"HUM: NO ARGUMENTS REQUIRED");
+            return 0;
+        }
+        emit(HUM_);STEP;
+    }       
+    if (!strcmp(msg,BRIGHT_T))
+    {
+        if (n!=0) 
+        {
+            bad((char*)"BRIGHT: NO ARGUMENTS REQUIRED");
+            return 0;
+        }
+        emit(BRIGHT_);STEP;
+    }         
     if (!strcmp(msg,VERSION_T))
     {
         if (n!=0) 
