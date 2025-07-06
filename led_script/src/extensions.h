@@ -430,7 +430,7 @@ int checkLut(uint8_t index)
     File file = FSLINK.open(filename.c_str(), FILE_READ);
     if (!file)
     {
-        PRINTLINK.printf("LUT %d does not exists\n", index);
+        OutputStream->printf("LUT %d does not exists\n", index);
         return -1; //LUT does not exists
     }
     int count = 0;
@@ -444,7 +444,7 @@ int checkLut(uint8_t index)
     file.close();
     if (count == 0)
     {
-        PRINTLINK.printf("LUT %d is empty\n", index);
+        OutputStream->printf("LUT %d is empty\n", index);
         return 0; //LUT is empty
     }
     return count + 1; //Return number of elements

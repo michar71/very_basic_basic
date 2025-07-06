@@ -12,12 +12,11 @@
 #include <Arduino.h>
 #endif
 
+Stream *OutputStream = NULL;
+
 //Set defaults if not defined somewhere else
 #ifndef FSLINK
 #define FSLINK LittleFS
-#endif
-#ifndef PRINTLINK
-	#define PRINTLINK Serial
 #endif
 
 //Forward declarations
@@ -74,9 +73,20 @@ char *stabp;														/* STRING TABLE POINTER*/
 
 int	(*kwdhook)(char *kwd);						/* KEYWORD HOOK */
 int	(*funhook)(char *kwd, int n);				/* FUNCTION CALL HOOK */
-void initbasic(int comp) { pc=prg; sp=stk+(int)STKSZ; csp=cstk+(int)STKSZ; stabp=stab; compile=comp; cpc = 0; registerhook(); }
-void bad(char *msg) { PRINTLINK.printf("ERROR %d: %s\n", lnum, msg); globalerror = 1; }
-void err(char *msg) { PRINTLINK.printf("ERROR %d: %s\n",lmap[pc-prg-1],msg); globalerror = 2; }
+
+void initbasic(Stream* out, int comp) 
+  { 
+	pc=prg; sp=stk+(int)STKSZ; 
+	csp=cstk+(int)STKSZ; 
+	stabp=stab; 
+	compile=comp; 
+	cpc = 0; 
+	OutputStream = out;
+	registerhook(); 
+
+}
+void bad(char *msg) { OutputStream->printf("ERROR %d: %s\n", lnum, msg); globalerror = 1; }
+void err(char *msg) { OutputStream->printf("ERROR %d: %s\n",lmap[pc-prg-1],msg); globalerror = 2; }
 
 void freedim() { int i; for (i=0; i<nvar; i++) if (mode[i]==VARMODE_DIM) free((Val*)value[i]); }
 void emit(int opcode()) { lmap[cpc]=lnum; prg[cpc++]=opcode; }
@@ -89,13 +99,13 @@ int RESUME_() { pc=opc? opc:pc; opc=pc; cpc=ipc; STEP; }
 int NUMBER_() { *--sp=PCV; STEP; }
 int LOAD_() { *--sp=value[PCV]; STEP; }
 int STORE_() { value[PCV]=*sp++; STEP; }
-void ECHO_() { PRINTLINK.printf("%d\n",*sp++); }
+void ECHO_() { OutputStream->printf("%d\n",*sp++); }
 int FORMAT_() { char *f; Val n=PCV, *ap=(sp+=n)-1;
 	for (f=stab + *sp++; *f; f++)
-		if (*f=='%') PRINTLINK.printf("%d", (int)*ap--);
-		else if (*f=='$') PRINTLINK.printf("%s", (char*)*ap--);
-		else PRINTLINK.print(*f);
-	PRINTLINK.print('\n'); STEP;
+		if (*f=='%') OutputStream->printf("%d", (int)*ap--);
+	else if (*f=='$') OutputStream->printf("%s", (char*)*ap--);
+	else OutputStream->print(*f);
+	OutputStream->print('\n'); STEP;
 }
 int ADD_() { A+=B; sp++; STEP; };
 int SUBS_() { A-=B; sp++; STEP; };
@@ -374,10 +384,10 @@ int interp(char* filen)
 	{
 		file = FSLINK.open(filen);
 		if (file.size() > 0)
-			PRINTLINK.println("File Opened");
+			OutputStream->println("File Opened");
 		else
 		{
-			PRINTLINK.println("File does not exists");
+			OutputStream->println("File does not exists");
 			return 0;
 		}	
 	}
@@ -387,7 +397,7 @@ int interp(char* filen)
 		for (;;) 
 		{
 			yield();
-			if (filen==NULL) PRINTLINK.printf("%d> ",lnum+1);
+			if (filen==NULL) OutputStream->printf("%d> ",lnum+1);
 			if (filen!=NULL)
 			{
 				len  = file.readBytesUntil('\n', lp=lbuf,sizeof lbuf);
@@ -399,7 +409,7 @@ int interp(char* filen)
 			else
 			{
 				do
-					len  = PRINTLINK.readBytesUntil('\n', lp=lbuf,sizeof lbuf);
+					len  = OutputStream->readBytesUntil('\n', lp=lbuf,sizeof lbuf);
 				while (len == 0);
 				lbuf[len] = 0;
 				lp = lbuf;
@@ -419,9 +429,9 @@ int interp(char* filen)
 			//Handle Errors
 			if ((error=check_error(filen)) > -1) return error; 
 		}
-		PRINTLINK.print("Compiled Size:");
-		PRINTLINK.print(cpc * 4);
-		PRINTLINK.println(" Bytes");
+		OutputStream->print("Compiled Size:");
+		OutputStream->print(cpc * 4);
+		OutputStream->println(" Bytes");
 		ipc=cpc+1, compile=0, file.close(), filen=NULL; /* DONE COMPILING */
 		emit((int (*)())BYE_);							/* RUN PROGRAM */
 		DRIVER;  										/* MOVE PROGRAM FORWARD */				

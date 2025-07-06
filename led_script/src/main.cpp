@@ -7,7 +7,6 @@
 #include "FS.h"
 #include <LittleFS.h>
 #define FSLINK LittleFS
-#define PRINTLINK Serial
 #include <SimpleSerialShell.h>
 #include "basic.h"
 #include "main.h"
@@ -25,8 +24,9 @@ del file
 ren file
 */
 
+
 /*
-SPIFFS
+Ffilesystem functions
 */
 
 /* You only need to format SPIFFS the first time you run a
@@ -276,7 +276,7 @@ int runBasic(int argc, char **argv)
     if (argc == 1)
     {
         Serial.println("RUNNING IN INTERACTIVE MODE. Press CTRL+Z, Return to exit.");
-        initbasic(1);
+        initbasic(&Serial,1);
         int res = interp(NULL);
         if (res != 0)
         {
@@ -292,7 +292,7 @@ int runBasic(int argc, char **argv)
     {
         Serial.print("RUNNING ");
         Serial.println(argv[1]);
-        initbasic(1);        
+        initbasic(&Serial,1);        
         int res = interp(argv[1]);
         if (res != 0)
         {
@@ -418,7 +418,7 @@ void loop()
     startup = false;
     if (FSLINK.exists((char*)"/startup.bas"))
     {
-        initbasic(1);
+        initbasic(&Serial,1);
         int res = interp((char*)"/startup.bas");
         if (res != 0)
         {
